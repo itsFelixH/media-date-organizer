@@ -1,96 +1,157 @@
 Param(
+    [Parameter(Mandatory = $true)]
+    [ValidateScript({ Test-Path -Path $_ -PathType Container })]
     [string]$source,
-    [string]$dest = $source + "\Sorted",
+    [string]$dest = (Join-Path -Path $source -ChildPath "Sorted"),
     [string]$format = "yyyy/yyyy-MM/yyyy-MM-dd"
 )
 
+# --- Setup ---
+# Using a COM object is slow. We can optimize by caching the property indexes.
+# This avoids calling the expensive GetDetailsof() in a loop for every file.
 $shell = New-Object -ComObject Shell.Application
+$datePropertyIndexes = @{
+    DateTaken  = -1
+    MediaCreated = -1
+    OtherDates = [System.Collections.Generic.List[int]]::new()
+}
+
+Write-Host "Analyzing metadata properties to find date fields..."
+# Use a temporary folder to query property names. The source folder might be huge.
+$tempDirForAnalysis = $shell.NameSpace($env:TEMP)
+0..287 | ForEach-Object {
+    # We query the property NAME, which is slow, but we only do it ONCE here.
+    $name = $tempDirForAnalysis.GetDetailsof($null, $_)
+    if ($name) {
+        # The property name for "Date taken" is consistent across languages in testing, but the fallback is still useful.
+        if ($name -eq 'Date taken') {
+            $datePropertyIndexes.DateTaken = $_
+        }
+        elseif ($name -eq 'Media created') {
+            $datePropertyIndexes.MediaCreated = $_
+        }
+        elseif ($name -match 'date' -or $name -match 'created') {
+            $datePropertyIndexes.OtherDates.Add($_)
+        }
+    }
+}
+$foundCount = 0
+if ($datePropertyIndexes.DateTaken -ne -1) { $foundCount++ }
+if ($datePropertyIndexes.MediaCreated -ne -1) { $foundCount++ }
+$foundCount += $datePropertyIndexes.OtherDates.Count
+Write-Host "Analysis complete. Found $foundCount potential date properties."
+
+# --- Functions ---
 
 function Get-File-Date {
     [CmdletBinding()]
     Param (
-        $object
+        [Parameter(Mandatory = $true)]
+        [System.IO.FileInfo]$FileObject
     )
 
-    $dir = $shell.NameSpace( $object.Directory.FullName )
-    $file = $dir.ParseName( $object.Name )
+    $dir = $shell.NameSpace($FileObject.Directory.FullName)
+    $file = $dir.ParseName($FileObject.Name)
+    # Use a list to collect all possible dates to ensure we find the absolute oldest.
+    $potentialDates = [System.Collections.Generic.List[datetime]]::new()
 
-    # First see if we have Date Taken, which is at index 12
-    $date = Get-Date-Property-Value $dir $file 12
-
-    if ($null -eq $date) {
-        # If we don't have Date Taken, then find the oldest date from all date properties
-        0..287 | ForEach-Object {
-            $name = $dir.GetDetailsof($dir.items, $_)
-
-            if ( $name -match '(date)|(created)') {
-            
-                # Only get value if date field because the GetDetailsOf call is expensive
-                $tmp = Get-Date-Property-Value $dir $file $_
-                if ( ($null -ne $tmp) -and (($null -eq $date) -or ($tmp -lt $date))) {
-                    $date = $tmp
-                }
-            }
-        }
+    # Check the primary "Date Taken" property (common for photos).
+    if ($datePropertyIndexes.DateTaken -ne -1) {
+        $oldestDate = Get-Date-Property-Value -Dir $dir -File $file -Index $datePropertyIndexes.DateTaken
+        $date = Get-Date-Property-Value -Dir $dir -File $file -Index $datePropertyIndexes.DateTaken
+        if ($null -ne $date) { $potentialDates.Add($date) }
     }
-    return $date
+
+    # Check the "Media Created" property (common for videos).
+    if ($datePropertyIndexes.MediaCreated -ne -1) {
+        $date = Get-Date-Property-Value -Dir $dir -File $file -Index $datePropertyIndexes.MediaCreated
+        if ($null -ne $date) { $potentialDates.Add($date) }
+    }
+
+    # Check all other fallback date properties.
+    foreach ($index in $datePropertyIndexes.OtherDates) {
+        $date = Get-Date-Property-Value -Dir $dir -File $file -Index $index
+        if ($null -ne $date) { $potentialDates.Add($date) }
+    }
+
+    if ($potentialDates.Count -gt 0) {
+        # Sort the dates and return the oldest one (the first in the sorted list).
+        $potentialDates.Sort()
+        return $potentialDates[0]
+    }
+
+    return $null
 }
 
 function Get-Date-Property-Value {
     [CmdletBinding()]
-
     Param (
         $dir,
         $file,
         $index
     )
 
-    $value = ($dir.GetDetailsof($file, $index) -replace "`u{200e}") -replace "`u{200f}"
-    if ($value -and $value -ne '') {
-        return [DateTime]::ParseExact($value, "g", $null)
+    try {
+        # These LTR/RTL marks can appear in metadata and break date parsing.
+        $value = ($dir.GetDetailsof($file, $index) -replace "`u{200e}") -replace "`u{200f}"
+        if ([string]::IsNullOrWhiteSpace($value)) {
+            return $null
+        }
+        # Using Parse() is more flexible than ParseExact("g", ...) as it handles more formats.
+        # The COM object returns dates in the system's current culture format.
+        return [DateTime]::Parse($value, [System.Globalization.CultureInfo]::CurrentCulture)
     }
-    return $null
+    catch {
+        # The value was not a recognizable date, so we return null.
+        return $null
+    }
 }
 
-Get-ChildItem -Attributes !Directory $source -Recurse | 
-Foreach-Object {
-    Write-Host "Processing $_"
+# --- Main Processing ---
+$files = Get-ChildItem -Path $source -Recurse -File
+$totalFiles = $files.Count
+$processedCount = 0
 
-    $date = Get-File-Date $_
+foreach ($fileInfo in $files) {
+    $processedCount++
+    Write-Host "[$processedCount/$totalFiles] Processing $($fileInfo.FullName)"
 
-    if ($date) {
-    
-        $destinationFolder = Get-Date -Date $date -Format $format
-        $destinationPath = Join-Path -Path $dest -ChildPath $destinationFolder   
+    try {
+        $date = Get-File-Date -FileObject $fileInfo
 
-        # See if the destination file exists and rename until we get a unique name
-        $newFullName = Join-Path -Path $destinationPath -ChildPath $_.Name
-        if ($_.FullName -eq $newFullName) {
-            Write-Host "Skipping: Source file and destination files are at the same location. $_"    
-            return
+        if ($null -eq $date) {
+            Write-Warning "Could not determine date for $($fileInfo.Name). Skipping."
+            continue # Skip to the next file
+        }
+
+        $destinationSubFolder = Get-Date -Date $date -Format $format
+        $destinationPath = Join-Path -Path $dest -ChildPath $destinationSubFolder
+
+        # Create the destination directory if it doesn't exist
+        if (!(Test-Path -PathType Container -Path $destinationPath)) {
+            New-Item -ItemType Directory -Force -Path $destinationPath | Out-Null
+        }
+
+        # Determine the final destination file path, handling name collisions
+        $finalDestinationFile = Join-Path -Path $destinationPath -ChildPath $fileInfo.Name
+
+        if ($fileInfo.FullName -eq $finalDestinationFile) {
+            Write-Host "Skipping: Source and destination are the same file. $($fileInfo.FullName)"
+            continue
         }
 
         $newNameIndex = 1
-        $newName = $_.Name
-
-        while (Test-Path -Path $newFullName) {
-            $newName = ($_.BaseName + "_$newNameIndex" + $_.Extension) 
-            $newFullName = Join-Path -Path $destinationPath -ChildPath $newName  
-            $newNameIndex += 1   
+        while (Test-Path -LiteralPath $finalDestinationFile) {
+            $newName = "$($fileInfo.BaseName)_$($newNameIndex)$($fileInfo.Extension)"
+            $finalDestinationFile = Join-Path -Path $destinationPath -ChildPath $newName
+            $newNameIndex++
         }
 
-        # If we have a new name, then we need to rename in current location before moving it.
-        if ($newNameIndex -gt 1) {
-            Rename-Item -Path $_.FullName -NewName $newName
-        }
-
-        Write-Host "Moving $_ to $newFullName"
-
-        # Create the destination directory if it doesn't exist
-        if (!(Test-Path $destinationPath)) {
-            New-Item -ItemType Directory -Force -Path $destinationPath
-        }
-
-        robocopy $_.DirectoryName $destinationPath $newName /mov
+        Write-Host "Moving to $finalDestinationFile"
+        # Move-Item is more idiomatic PowerShell than robocopy and handles the rename implicitly.
+        Move-Item -LiteralPath $fileInfo.FullName -Destination $finalDestinationFile
+    }
+    catch {
+        Write-Error "An unexpected error occurred while processing '$($fileInfo.FullName)': $_"
     }
 }
