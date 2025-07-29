@@ -57,7 +57,6 @@ function Get-File-Date {
 
     # Check the primary "Date Taken" property (common for photos).
     if ($datePropertyIndexes.DateTaken -ne -1) {
-        $oldestDate = Get-Date-Property-Value -Dir $dir -File $file -Index $datePropertyIndexes.DateTaken
         $date = Get-Date-Property-Value -Dir $dir -File $file -Index $datePropertyIndexes.DateTaken
         if ($null -ne $date) { $potentialDates.Add($date) }
     }
@@ -155,3 +154,7 @@ foreach ($fileInfo in $files) {
         Write-Error "An unexpected error occurred while processing '$($fileInfo.FullName)': $_"
     }
 }
+
+[System.Runtime.InteropServices.Marshal]::ReleaseComObject($shell) | Out-Null
+# Clean up the variable to prevent accidental reuse
+Remove-Variable shell
