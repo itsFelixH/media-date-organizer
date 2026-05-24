@@ -38,7 +38,7 @@ Before running the main script, you can use `analyzeMedia.ps1` to see exactly ho
    .\analyzeMedia.ps1
    ```
 
-3. Review `property_report.md` to see:
+3. Review the generated `property_report_*.md` file to see:
    - The **Script Decision** (which date source was chosen).
    - A list of all date-related Windows Shell properties found.
    - Specific markers showing which properties are considered **(Priority)**.

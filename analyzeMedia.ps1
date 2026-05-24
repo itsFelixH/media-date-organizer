@@ -4,7 +4,8 @@
 #>
 
 $examplesPath = Join-Path -Path $PSScriptRoot -ChildPath "examples"
-$reportPath = Join-Path -Path $PSScriptRoot -ChildPath "property_report.md"
+$reportTimestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$reportPath = Join-Path -Path $PSScriptRoot -ChildPath "property_report_$reportTimestamp.md"
 
 if (-not (Test-Path -Path $examplesPath)) {
     Write-Error "The directory '$examplesPath' does not exist. Please create it and add sample files."
@@ -34,7 +35,7 @@ $folder = $shell.NameSpace($examplesPath)
 
 $mdContent = New-Object System.Collections.Generic.List[string]
 $mdContent.Add("# Media Metadata Analysis Report")
-$mdContent.Add("Generated on: $(Get-Date)")
+$mdContent.Add("Generated on: $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))")
 $mdContent.Add("")
 $mdContent.Add("This report lists the **Extracted Filename Date** and all date-related Windows Shell properties for files in the ``/examples`` folder.")
 $mdContent.Add("")
