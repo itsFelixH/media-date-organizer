@@ -3,17 +3,18 @@ Param(
     [ValidateScript({ Test-Path -Path $_ -PathType Container })]
     [string]$source,
     [string]$dest = (Join-Path -Path $source -ChildPath "Sorted"),
-    [string]$format = "yyyy/yyyy-MM/yyyy-MM-dd"
+    [string]$format = "yyyy/yyyy-MM/yyyy-MM-dd",
+    [switch]$DryRun
 )
 
 # --- Configuration ---
-# Known Windows Property System IDs for date properties
+# Known Windows Property System IDs for date properties (in priority order)
 $knownDateIds = @(
     12,   # System.Photo.DateTaken (Date Taken)
     208,  # System.Media.DateEncoded (Media Created)
-    4,    # System.DateCreated (Date Created)
-    15    # System.DateModified (Date Modified)
+    4     # System.DateCreated (Date Created - often reflects file system creation date)
 )
+
 
 # --- Setup ---
 $shell = New-Object -ComObject Shell.Application
@@ -37,23 +38,18 @@ function Get-File-Date {
 
     $dir = Get-CachedNamespace $FileObject.Directory.FullName
     $file = $dir.ParseName($FileObject.Name)
-    $potentialDates = [System.Collections.Generic.List[datetime]]::new()
 
-    # Check all known date properties
+    # Check known date properties in priority order
     foreach ($id in $knownDateIds) {
         $dateValue = $dir.GetDetailsof($file, $id)
         if (-not [string]::IsNullOrWhiteSpace($dateValue)) {
             $cleanValue = $dateValue -replace "`u{200e}" -replace "`u{200f}"
             $parsedDate = $null
             if ([DateTime]::TryParse($cleanValue, [ref]$parsedDate)) {
-                $potentialDates.Add($parsedDate)
+                # Found a valid date for this priority, return it immediately
+                return $parsedDate
             }
         }
-    }
-
-    if ($potentialDates.Count -gt 0) {
-        $potentialDates.Sort()
-        return $potentialDates[0]
     }
 
     # Fallback to file system dates
@@ -77,7 +73,11 @@ foreach ($fileInfo in $files) {
         $destinationPath = Join-Path -Path $dest -ChildPath $destinationSubFolder
 
         # Create destination directory
-        if (!(Test-Path -PathType Container -Path $destinationPath)) {
+        if ($DryRun) {
+            if (!(Test-Path -PathType Container -Path $destinationPath)) {
+                Write-Host "[DRY RUN] Would create directory: $destinationPath"
+            }
+        } elseif (!(Test-Path -PathType Container -Path $destinationPath)) {
             New-Item -ItemType Directory -Force -Path $destinationPath | Out-Null
         }
 
@@ -96,9 +96,12 @@ foreach ($fileInfo in $files) {
             continue
         }
 
-        # Move file
-        Write-Host "Moving to $finalDestinationFile"
-        Move-Item -LiteralPath $fileInfo.FullName -Destination $finalDestinationFile -Force
+        if ($DryRun) {
+            Write-Host "[DRY RUN] Would move '$($fileInfo.FullName)' to '$finalDestinationFile'"
+        } else {
+            Write-Host "Moving to $finalDestinationFile"
+            Move-Item -LiteralPath $fileInfo.FullName -Destination $finalDestinationFile -Force
+        }
     }
     catch {
         Write-Error "Error processing '$($fileInfo.FullName)': $_"
