@@ -45,7 +45,7 @@ function Get-File-Date {
     # Matches YYYYMMDD, YYYY-MM-DD, YYYY_MM_DD, YYYY.MM.DD
     if ($FileObject.BaseName -match '(?<!\d)(20\d{2}|19\d{2})[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12]\d|3[01])') {
         $dateStr = "$($Matches[1])-$($Matches[2])-$($Matches[3])"
-        $parsedDate = $null
+        [datetime]$parsedDate = $null
         if ([DateTime]::TryParse($dateStr, [ref]$parsedDate)) {
             return $parsedDate
         }
@@ -59,7 +59,7 @@ function Get-File-Date {
         $dateValue = $dir.GetDetailsof($file, $id)
         if (-not [string]::IsNullOrWhiteSpace($dateValue)) {
             $cleanValue = $dateValue -replace "[\u200e\u200f\u202a-\u202e]", ""
-            $parsedDate = $null
+            [datetime]$parsedDate = $null
             if ([DateTime]::TryParse($cleanValue, [ref]$parsedDate)) {
                 # Found a valid date for this priority, return it immediately
                 return $parsedDate

@@ -59,7 +59,8 @@ foreach ($fileInfo in $files) {
             $rawVal = $folder.GetDetailsOf($item, $id)
             if (-not [string]::IsNullOrWhiteSpace($rawVal)) {
                 $cleanVal = $rawVal -replace "[\u200e\u200f\u202a-\u202e]", ""
-                if ([DateTime]::TryParse($cleanVal, [ref]$null)) {
+                [datetime]$tempDate = $null
+                if ([DateTime]::TryParse($cleanVal, [ref]$tempDate)) {
                     $finalDateSource = "Metadata ID $id ($($folder.GetDetailsOf($null, $id)))"
                     $finalDateValue = $cleanVal
                     break
