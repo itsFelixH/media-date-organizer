@@ -13,6 +13,7 @@ $knownDateIds = @(
     12,    # System.Photo.DateTaken (Date Taken - common for photos)
     36879, # System.Photo.DateTimeOriginal (EXIF Date/Time Original - most reliable for photos)
     208,   # System.Media.DateEncoded (Media Created - common for videos)
+    209,   # System.Media.DateEncoded (Media Created - alternate ID used in some locales/formats)
     17,    # System.RecordedDate (Recorded Date - often for audio/video)
     3,     # System.ItemDate (General Item Date - good fallback for any media type)
     15,    # System.DateModified (Date Modified - useful if EXIF is missing)
@@ -57,7 +58,7 @@ function Get-File-Date {
     foreach ($id in $knownDateIds) {
         $dateValue = $dir.GetDetailsof($file, $id)
         if (-not [string]::IsNullOrWhiteSpace($dateValue)) {
-            $cleanValue = $dateValue -replace "`u{200e}" -replace "`u{200f}"
+            $cleanValue = $dateValue -replace "[\u200e\u200f\u202a-\u202e]", ""
             $parsedDate = $null
             if ([DateTime]::TryParse($cleanValue, [ref]$parsedDate)) {
                 # Found a valid date for this priority, return it immediately
