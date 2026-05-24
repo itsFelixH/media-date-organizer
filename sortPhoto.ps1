@@ -10,9 +10,13 @@ Param(
 # --- Configuration ---
 # Known Windows Property System IDs for date properties (in priority order)
 $knownDateIds = @(
-    12,   # System.Photo.DateTaken (Date Taken)
-    208,  # System.Media.DateEncoded (Media Created)
-    4     # System.DateCreated (Date Created - often reflects file system creation date)
+    12,    # System.Photo.DateTaken (Date Taken - common for photos)
+    36879, # System.Photo.DateTimeOriginal (EXIF Date/Time Original - most reliable for photos)
+    208,   # System.Media.DateEncoded (Media Created - common for videos)
+    17,    # System.RecordedDate (Recorded Date - often for audio/video)
+    3,     # System.ItemDate (General Item Date - good fallback for any media type)
+    15,    # System.DateModified (Date Modified - useful if EXIF is missing)
+    4      # System.DateCreated (File System Creation Date - least reliable, last resort fallback)
 )
 
 
