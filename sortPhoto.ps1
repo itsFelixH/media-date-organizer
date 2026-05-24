@@ -58,8 +58,14 @@ function Get-File-Date {
 }
 
 # --- Main Processing ---
-$files = Get-ChildItem -Path $source -Recurse -File
+$files = Get-ChildItem -Path $source -Recurse -File | Where-Object { $_.FullName -notlike "$dest*" }
 $totalFiles = $files.Count
+
+if ($totalFiles -eq 0) {
+    Write-Host "No files found to process in '$source'."
+    return
+}
+
 $processedCount = 0
 
 foreach ($fileInfo in $files) {
