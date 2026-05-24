@@ -3,7 +3,7 @@ Param(
     [ValidateScript({ Test-Path -Path $_ -PathType Container })]
     [string]$source,
     [string]$dest = (Join-Path -Path $source -ChildPath "Sorted"),
-    [string]$format = "yyyy/yyyy-MM/yyyy-MM-dd",
+    [string]$format = "yyyy\\yyyy-MM\\yyyy-MM-dd",
     [switch]$DryRun
 )
 
@@ -45,7 +45,7 @@ function Get-File-Date {
     # Matches YYYYMMDD, YYYY-MM-DD, YYYY_MM_DD, YYYY.MM.DD
     if ($FileObject.BaseName -match '(?<!\d)(20\d{2}|19\d{2})[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12]\d|3[01])') {
         $dateStr = "$($Matches[1])-$($Matches[2])-$($Matches[3])"
-        [datetime]$parsedDate = $null
+        $parsedDate = [System.DateTime]::MinValue
         if ([DateTime]::TryParse($dateStr, [ref]$parsedDate)) {
             return $parsedDate
         }
@@ -59,7 +59,7 @@ function Get-File-Date {
         $dateValue = $dir.GetDetailsof($file, $id)
         if (-not [string]::IsNullOrWhiteSpace($dateValue)) {
             $cleanValue = $dateValue -replace "[\u200e\u200f\u202a-\u202e]", ""
-            [datetime]$parsedDate = $null
+            $parsedDate = [System.DateTime]::MinValue
             if ([DateTime]::TryParse($cleanValue, [ref]$parsedDate)) {
                 # Found a valid date for this priority, return it immediately
                 return $parsedDate
