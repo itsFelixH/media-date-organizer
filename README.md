@@ -1,32 +1,15 @@
 # media-date-organizer
 
-A PowerShell script to organize photos and videos into date-based folders using metadata like **Date Taken** or **Created Date**.
+A PowerShell script to organize photos and videos into date-based folders using metadata.
 
 ## 📌 Features
 
-- Sorts photos **and** videos by embedded metadata.
-- Supports **recursive** folder processing.
-- Automatically creates a date-based folder structure:
-
-  ```bash
-  yyyy/
-      yyyy-MM/
-          yyyy-MM-dd/
-  ```
-
-- Uses **Date Taken** when available (ideal for photos), falls back to **Created Date**.
-- Prevents overwriting existing files by auto-renaming duplicates.
-- Moves files using `robocopy` for reliable file transfers.
-
-## 📁 Example
-
-A video taken on *March 12, 2023* will be moved to:
-
-```bash
-\2023
-    \2023-03
-        \2023-03-12\
-```
+- Supports all common image/video formats
+- Metadata priority:\
+``Date Taken`` → ``Media Created`` → ``File Creation Date``
+- Auto-renaming for duplicates (IMG_0001.jpg → IMG_0001_1.jpg)
+- Preserves file extensions
+- Progress reporting
 
 ## 🚀 Usage
 
@@ -42,18 +25,25 @@ A video taken on *March 12, 2023* will be moved to:
 | `-dest` | Root destination folder | `<source>\Sorted` |
 | `-format` | Date format for folder structure | `yyyy/yyyy-MM/yyyy-MM-dd` |
 
-## 🔧 Requirements
-
-- Windows
-- PowerShell
-- `robocopy` (included with Windows)
-- File metadata (EXIF or NTFS date fields)
-
 ## ⚠ Notes
 
-- Some video files may not have **Date Taken** — the script will fall back to the earliest available date field.
-- Uses the Windows Shell COM interface to extract metadata (necessary for Date Taken in Explorer).
-- Rename logic ensures files aren’t overwritten when duplicates exist.
+1. **Network Drives:**\
+Metadata extraction requires local files (mapped drives okay)
+2. **File Types:**\
+RAW camera files (CR3/NEF) require Windows 10+ for metadata
+3. **Permissions:**\
+Run as Administrator if accessing protected directories
+4. **Testing:**\
+Always test with copies first!
+
+## 📁 Folder Structure Examples
+
+| Original | Destination |
+|-------|-----|
+| ``DSC02345.jpg`` (2023-06-15) | ``\Sorted\2023\2023-06\2023-06-15\DSC02345.jpg`` |
+| ``VID_20240101.mp4`` | ``\Sorted\2024\2024-01\2024-01-01\VID_20240101.mp4`` |
+
+Custom formats: ``-format "yyyy/MM-MMM"`` → ``2024/04-Apr``
 
 ## 🙌 Contributions
 
