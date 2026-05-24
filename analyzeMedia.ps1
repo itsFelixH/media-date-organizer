@@ -56,8 +56,6 @@ foreach ($fileInfo in $files) {
 
         $value = $folder.GetDetailsOf($item, $i)
         if (-not [string]::IsNullOrWhiteSpace($value)) {
-            # Remove invisible Unicode characters (LTR/RTL marks) and escape pipes for Markdown
-            $cleanValue = ($value -replace "`u{200e}" -replace "`u{200f}").Replace("|", "\|")
             # Remove invisible Unicode control characters (BiDi markers) and escape pipes for Markdown
             $cleanValue = ($value -replace "[\u200e\u200f\u202a-\u202e]", "").Replace("|", "\|")
             $mdContent.Add("| $i | $name | $cleanValue |")
