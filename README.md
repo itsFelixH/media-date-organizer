@@ -6,7 +6,7 @@ A PowerShell script to organize photos and videos into date-based folders using 
 
 - Supports all common image/video formats
 - Metadata priority:\
-``Date Taken`` → ``Media Created`` → ``File Creation Date``
+``Filename Date`` → ``Date Taken`` → ``Media Created`` → ``File Creation Date``
 - Auto-renaming for duplicates (IMG_0001.jpg → IMG_0001_1.jpg)
 - Preserves file extensions
 - Progress reporting
