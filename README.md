@@ -24,7 +24,7 @@ A collection of PowerShell scripts to analyze and organize photos and videos int
 |-|-||
 | `-source` | Path to the folder containing media files | *Required* |
 | `-dest` | Root destination folder | `<source>\Sorted` |
-| `-format` | Date format for folder structure | `yyyy/yyyy-MM/yyyy-MM-dd` |
+| `-format` | Date format for folder structure | `yyyy\\yyyy-MM\\yyyy-MM-dd` |
 | `-DryRun` | Preview the organization without creating folders or moving files | `$false` |
 
 ## 🔍 Diagnostic Tool (`analyzeMedia.ps1`)
@@ -33,9 +33,11 @@ Before running the main script, you can use `analyzeMedia.ps1` to see exactly ho
 
 1. Place sample files in the `\examples` folder.
 2. Run the script:
+
    ```powershell
    .\analyzeMedia.ps1
    ```
+
 3. Review `property_report.md` to see:
    - The **Script Decision** (which date source was chosen).
    - A list of all date-related Windows Shell properties found.
@@ -59,11 +61,11 @@ Always test with copies first!
 ## 📁 Folder Structure Examples
 
 | Original | Destination |
-|-------|-----|
+| ------- | ----- |
 | ``DSC02345.jpg`` (2023-06-15) | ``\Sorted\2023\2023-06\2023-06-15\DSC02345.jpg`` |
 | ``VID_20240101.mp4`` | ``\Sorted\2024\2024-01\2024-01-01\VID_20240101.mp4`` |
 
-Custom formats: ``-format "yyyy/MM-MMM"`` → ``2024/04-Apr``
+Custom formats: ``-format "yyyy\\MM-MMM"`` → ``2024\04-Apr``
 
 ## 🙌 Contributions
 
