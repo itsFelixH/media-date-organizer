@@ -40,6 +40,16 @@ function Get-File-Date {
         [System.IO.FileInfo]$FileObject
     )
 
+    # 1. Try extracting date from filename (Highest Priority)
+    # Matches YYYYMMDD, YYYY-MM-DD, YYYY_MM_DD, YYYY.MM.DD
+    if ($FileObject.BaseName -match '(?<!\d)(20\d{2}|19\d{2})[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12]\d|3[01])') {
+        $dateStr = "$($Matches[1])-$($Matches[2])-$($Matches[3])"
+        $parsedDate = $null
+        if ([DateTime]::TryParse($dateStr, [ref]$parsedDate)) {
+            return $parsedDate
+        }
+    }
+
     $dir = Get-CachedNamespace $FileObject.Directory.FullName
     $file = $dir.ParseName($FileObject.Name)
 
