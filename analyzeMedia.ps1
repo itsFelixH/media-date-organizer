@@ -3,6 +3,10 @@
     Analyzes files in the 'examples' folder and generates a Markdown report of all available shell properties.
 #>
 
+Param(
+    [string]$config = (Join-Path -Path $PSScriptRoot -ChildPath "config.ini")
+)
+
 $examplesPath = Join-Path -Path $PSScriptRoot -ChildPath "examples"
 $reportTimestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $reportPath = Join-Path -Path $PSScriptRoot -ChildPath "property_report_$reportTimestamp.md"
@@ -12,17 +16,59 @@ if (-not (Test-Path -Path $examplesPath)) {
     return
 }
 
-# Known Windows Property System IDs for date properties (sync with sortPhoto.ps1)
-$knownDateIds = @(
-    12,    # System.Photo.DateTaken
-    36879, # System.Photo.DateTimeOriginal
-    208,   # System.Media.DateEncoded
-    209,   # System.Media.DateEncoded (Alt)
-    17,    # System.RecordedDate
-    3,     # System.ItemDate
-    15,    # System.DateModified
-    4      # System.DateCreated
-)
+# --- Configuration ---
+# Map of friendly names to Windows Shell property IDs
+$metadataPropertyMap = @{
+    "DateTaken"        = 12     # System.Photo.DateTaken
+    "DateTimeOriginal" = 36879  # System.Photo.DateTimeOriginal (EXIF)
+    "MediaCreated"     = 208    # System.Media.DateEncoded
+    "MediaCreatedAlt"  = 209    # System.Media.DateEncoded (alternate locale ID)
+    "RecordedDate"     = 17     # System.RecordedDate
+    "ItemDate"         = 3      # System.ItemDate
+    "DateModified"     = 15     # System.DateModified
+    "DateCreated"      = 4      # System.DateCreated (file system)
+}
+
+# Defaults
+$priority = @("metadata", "filename", "filesystem")
+$knownDateIds = @(12, 36879, 208, 209, 17, 3, 15, 4)
+
+# Load config file if it exists
+if (Test-Path -Path $config -PathType Leaf) {
+    Write-Host "Loading configuration from: $config"
+    $currentSection = $null
+    $configPriority = @()
+    $configDateIds = @()
+
+    foreach ($line in Get-Content -Path $config) {
+        $line = $line.Trim()
+        if ([string]::IsNullOrWhiteSpace($line) -or $line.StartsWith('#')) { continue }
+        if ($line -match '^\[(.+)\]$') {
+            $currentSection = $Matches[1]
+            continue
+        }
+        switch ($currentSection) {
+            "Priority" {
+                if ($line -in @("filename", "metadata", "filesystem")) {
+                    $configPriority += $line
+                } else {
+                    Write-Warning "Unknown priority strategy '$line' in config. Available: filename, metadata, filesystem"
+                }
+            }
+            "MetadataProperties" {
+                if ($metadataPropertyMap.ContainsKey($line)) {
+                    $configDateIds += $metadataPropertyMap[$line]
+                } else {
+                    Write-Warning "Unknown metadata property '$line' in config. Available: $($metadataPropertyMap.Keys -join ', ')"
+                }
+            }
+        }
+    }
+    if ($configPriority.Count -gt 0) { $priority = $configPriority }
+    if ($configDateIds.Count -gt 0) { $knownDateIds = $configDateIds }
+} else {
+    Write-Host "No config file found at '$config'. Using defaults."
+}
 
 $files = Get-ChildItem -Path $examplesPath -File
 if ($files.Count -eq 0) {
@@ -44,33 +90,41 @@ foreach ($fileInfo in $files) {
     Write-Host "Analyzing: $($fileInfo.Name)..."
     $item = $folder.ParseName($fileInfo.Name)
 
-    # --- Decision Waterfall (Same logic as sortPhoto.ps1) ---
+    # --- Decision Waterfall (uses configured priority) ---
     $finalDateSource = "None Found"
     $finalDateValue = "N/A"
 
-    # 1. Filename Extraction
-    if ($fileInfo.BaseName -match '(?<!\d)(20\d{2}|19\d{2})[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12]\d|3[01])') {
-        $finalDateSource = "Filename Regex"
-        $finalDateValue = "$($Matches[1])-$($Matches[2])-$($Matches[3])"
-    }
-
-    # 2. Metadata Waterfall (Simulation)
-    if ($finalDateSource -eq "None Found") {
-        foreach ($id in $knownDateIds) {
-            $rawVal = $folder.GetDetailsOf($item, $id)
-            if (-not [string]::IsNullOrWhiteSpace($rawVal)) {
-                $cleanVal = $rawVal -replace "[\u200e\u200f\u202a-\u202e]", ""
-                $tempDate = [System.DateTime]::MinValue
-                if ([DateTime]::TryParse($cleanVal, [ref]$tempDate)) {
-                    $finalDateSource = "Metadata ID $id ($($folder.GetDetailsOf($null, $id)))"
-                    $finalDateValue = $cleanVal
-                    break
+    foreach ($strategy in $priority) {
+        if ($finalDateSource -ne "None Found") { break }
+        switch ($strategy) {
+            "filename" {
+                if ($fileInfo.BaseName -match '(?<!\d)(20\d{2}|19\d{2})[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12]\d|3[01])') {
+                    $finalDateSource = "Filename Regex"
+                    $finalDateValue = "$($Matches[1])-$($Matches[2])-$($Matches[3])"
                 }
+            }
+            "metadata" {
+                foreach ($id in $knownDateIds) {
+                    $rawVal = $folder.GetDetailsOf($item, $id)
+                    if (-not [string]::IsNullOrWhiteSpace($rawVal)) {
+                        $cleanVal = $rawVal -replace "[\u200e\u200f\u202a-\u202e]", ""
+                        $tempDate = [System.DateTime]::MinValue
+                        if ([DateTime]::TryParse($cleanVal, [ref]$tempDate)) {
+                            $finalDateSource = "Metadata ID $id ($($folder.GetDetailsOf($null, $id)))"
+                            $finalDateValue = $cleanVal
+                            break
+                        }
+                    }
+                }
+            }
+            "filesystem" {
+                $finalDateSource = "File System (CreationTime)"
+                $finalDateValue = $fileInfo.CreationTime.ToString()
             }
         }
     }
 
-    # 3. Fallback
+    # Ultimate fallback
     if ($finalDateSource -eq "None Found") {
         $finalDateSource = "File System (CreationTime)"
         $finalDateValue = $fileInfo.CreationTime.ToString()
