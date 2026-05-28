@@ -1,0 +1,26 @@
+# Configuration for sortPhotosAndVideos.ps1
+# Copy this file to config.ini and adjust to your needs.
+#
+# [Priority]
+# Order in which date-extraction strategies are tried. First match wins.
+# Available strategies: filename, metadata, filesystem
+#
+# [MetadataProperties]
+# Order in which metadata fields are checked during the "metadata" strategy.
+# Available: DateTaken, DateTimeOriginal, MediaCreated, MediaCreatedAlt,
+#            RecordedDate, ItemDate, DateModified, DateCreated
+
+[Priority]
+metadata
+filename
+filesystem
+
+[MetadataProperties]
+DateTaken
+DateTimeOriginal
+MediaCreated
+MediaCreatedAlt
+RecordedDate
+ItemDate
+DateModified
+DateCreated
