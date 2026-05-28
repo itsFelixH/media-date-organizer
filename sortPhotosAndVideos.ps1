@@ -4,21 +4,67 @@ Param(
     [string]$source,
     [string]$dest = (Join-Path -Path $source -ChildPath "Sorted"),
     [string]$format = "yyyy\\yyyy-MM\\yyyy-MM-dd",
+    [string]$config = (Join-Path -Path $PSScriptRoot -ChildPath "config.ini"),
     [switch]$DryRun
 )
 
 # --- Configuration ---
-# Known Windows Property System IDs for date properties (in priority order)
-$knownDateIds = @(
-    12,    # System.Photo.DateTaken (Date Taken - common for photos)
-    36879, # System.Photo.DateTimeOriginal (EXIF Date/Time Original - most reliable for photos)
-    208,   # System.Media.DateEncoded (Media Created - common for videos)
-    209,   # System.Media.DateEncoded (Media Created - alternate ID used in some locales/formats)
-    17,    # System.RecordedDate (Recorded Date - often for audio/video)
-    3,     # System.ItemDate (General Item Date - good fallback for any media type)
-    15,    # System.DateModified (Date Modified - useful if EXIF is missing)
-    4      # System.DateCreated (File System Creation Date - least reliable, last resort fallback)
-)
+# Map of friendly names to Windows Shell property IDs
+$metadataPropertyMap = @{
+    "DateTaken"        = 12     # System.Photo.DateTaken
+    "DateTimeOriginal" = 36879  # System.Photo.DateTimeOriginal (EXIF)
+    "MediaCreated"     = 208    # System.Media.DateEncoded
+    "MediaCreatedAlt"  = 209    # System.Media.DateEncoded (alternate locale ID)
+    "RecordedDate"     = 17     # System.RecordedDate
+    "ItemDate"         = 3      # System.ItemDate
+    "DateModified"     = 15     # System.DateModified
+    "DateCreated"      = 4      # System.DateCreated (file system)
+}
+
+# Defaults
+$priority = @("metadata", "filename", "filesystem")
+$knownDateIds = @(12, 36879, 208, 209, 17, 3, 15, 4)
+
+# Load config file if it exists
+if (Test-Path -Path $config -PathType Leaf) {
+    Write-Host "Loading configuration from: $config"
+    $currentSection = $null
+    $configPriority = @()
+    $configDateIds = @()
+
+    foreach ($line in Get-Content -Path $config) {
+        $line = $line.Trim()
+        # Skip empty lines and comments
+        if ([string]::IsNullOrWhiteSpace($line) -or $line.StartsWith('#')) { continue }
+        # Section header
+        if ($line -match '^\[(.+)\]$') {
+            $currentSection = $Matches[1]
+            continue
+        }
+        # Values under sections
+        switch ($currentSection) {
+            "Priority" {
+                if ($line -in @("filename", "metadata", "filesystem")) {
+                    $configPriority += $line
+                } else {
+                    Write-Warning "Unknown priority strategy '$line' in config. Available: filename, metadata, filesystem"
+                }
+            }
+            "MetadataProperties" {
+                if ($metadataPropertyMap.ContainsKey($line)) {
+                    $configDateIds += $metadataPropertyMap[$line]
+                } else {
+                    Write-Warning "Unknown metadata property '$line' in config. Available: $($metadataPropertyMap.Keys -join ', ')"
+                }
+            }
+        }
+    }
+    # Override defaults only if config had entries
+    if ($configPriority.Count -gt 0) { $priority = $configPriority }
+    if ($configDateIds.Count -gt 0) { $knownDateIds = $configDateIds }
+} else {
+    Write-Host "No config file found at '$config'. Using defaults."
+}
 
 
 # --- Setup ---
@@ -34,14 +80,8 @@ function Get-CachedNamespace {
     return $namespaceCache[$path]
 }
 
-function Get-File-Date {
-    [CmdletBinding()]
-    Param (
-        [Parameter(Mandatory = $true)]
-        [System.IO.FileInfo]$FileObject
-    )
-
-    # 1. Try extracting date from filename (Highest Priority)
+function Get-DateFromFilename {
+    Param ([System.IO.FileInfo]$FileObject)
     # Matches YYYYMMDD, YYYY-MM-DD, YYYY_MM_DD, YYYY.MM.DD
     if ($FileObject.BaseName -match '(?<!\d)(20\d{2}|19\d{2})[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12]\d|3[01])') {
         $dateStr = "$($Matches[1])-$($Matches[2])-$($Matches[3])"
@@ -50,25 +90,53 @@ function Get-File-Date {
             return $parsedDate
         }
     }
+    return $null
+}
 
+function Get-DateFromMetadata {
+    Param ([System.IO.FileInfo]$FileObject)
     $dir = Get-CachedNamespace $FileObject.Directory.FullName
     $file = $dir.ParseName($FileObject.Name)
 
-    # Check known date properties in priority order
     foreach ($id in $knownDateIds) {
         $dateValue = $dir.GetDetailsof($file, $id)
         if (-not [string]::IsNullOrWhiteSpace($dateValue)) {
             $cleanValue = $dateValue -replace "[\u200e\u200f\u202a-\u202e]", ""
             $parsedDate = [System.DateTime]::MinValue
             if ([DateTime]::TryParse($cleanValue, [ref]$parsedDate)) {
-                # Found a valid date for this priority, return it immediately
                 return $parsedDate
             }
         }
     }
+    return $null
+}
 
-    # Fallback to file system dates
-    Write-Warning "No metadata dates found for $($FileObject.Name). Using file creation time."
+function Get-DateFromFilesystem {
+    Param ([System.IO.FileInfo]$FileObject)
+    return $FileObject.CreationTime
+}
+
+function Get-File-Date {
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory = $true)]
+        [System.IO.FileInfo]$FileObject
+    )
+
+    foreach ($strategy in $priority) {
+        $result = switch ($strategy) {
+            "filename"   { Get-DateFromFilename -FileObject $FileObject }
+            "metadata"   { Get-DateFromMetadata -FileObject $FileObject }
+            "filesystem" { Get-DateFromFilesystem -FileObject $FileObject }
+            default      { Write-Warning "Unknown priority strategy: $strategy"; $null }
+        }
+        if ($null -ne $result) {
+            return $result
+        }
+    }
+
+    # Ultimate fallback if all configured strategies fail
+    Write-Warning "All strategies failed for $($FileObject.Name). Using file creation time."
     return $FileObject.CreationTime
 }
 
