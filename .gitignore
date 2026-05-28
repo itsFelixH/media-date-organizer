@@ -1,3 +1,6 @@
 # Ignore example files and the generated report
 /examples/
 /property_report*.md
+
+# User-specific configuration (copy config.ini.template to config.ini)
+config.ini
