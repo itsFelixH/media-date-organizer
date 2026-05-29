@@ -29,6 +29,7 @@ $dateFormat = "yyyy\\yyyy-MM\\yyyy-MM-dd"
 $includeExtensions = @()
 $excludeExtensions = @()
 $conflictStrategy = "rename"
+$logFile = ""
 
 # Load config file if it exists
 if (Test-Path -Path $config -PathType Leaf) {
@@ -87,6 +88,7 @@ if (Test-Path -Path $config -PathType Leaf) {
                             if ($val -in @("rename", "skip", "overwrite")) { $conflictStrategy = $val }
                             else { Write-Warning "Invalid ConflictStrategy '$val'. Available: rename, skip, overwrite" }
                         }
+                        "LogFile" { $logFile = $val }
                         default { Write-Warning "Unknown option '$key' in config." }
                     }
                 }
@@ -104,6 +106,27 @@ if (Test-Path -Path $config -PathType Leaf) {
 # --- Setup ---
 $shell = New-Object -ComObject Shell.Application
 $namespaceCache = @{}
+
+# Initialize log file
+if ($logFile -ne "") {
+    $logHeader = "Timestamp`tAction`tSource`tDestination`tStrategy"
+    if (-not (Test-Path -Path $logFile)) {
+        $logHeader | Out-File -FilePath $logFile -Encoding utf8
+    }
+}
+
+function Write-LogEntry {
+    Param(
+        [string]$Action,
+        [string]$Source,
+        [string]$Destination,
+        [string]$Strategy
+    )
+    if ($logFile -ne "") {
+        $entry = "{0}`t{1}`t{2}`t{3}`t{4}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Action, $Source, $Destination, $Strategy
+        $entry | Out-File -FilePath $logFile -Encoding utf8 -Append
+    }
+}
 
 # --- Functions ---
 function Get-CachedNamespace {
@@ -165,13 +188,13 @@ function Get-File-Date {
             default      { Write-Warning "Unknown priority strategy: $strategy"; $null }
         }
         if ($null -ne $result) {
-            return $result
+            return @{ Date = $result; Strategy = $strategy }
         }
     }
 
     # Ultimate fallback if all configured strategies fail
     Write-Warning "All strategies failed for $($FileObject.Name). Using file creation time."
-    return $FileObject.CreationTime
+    return @{ Date = $FileObject.CreationTime; Strategy = "filesystem (fallback)" }
 }
 
 # --- Main Processing ---
@@ -203,7 +226,9 @@ foreach ($fileInfo in $files) {
     Write-Host "[$processedCount/$totalFiles] Processing $($fileInfo.Name)"
 
     try {
-        $date = Get-File-Date -FileObject $fileInfo
+        $dateResult = Get-File-Date -FileObject $fileInfo
+        $date = $dateResult.Date
+        $dateStrategy = $dateResult.Strategy
         $destinationSubFolder = Get-Date -Date $date -Format $dateFormat
         $destinationPath = Join-Path -Path $dest -ChildPath $destinationSubFolder
 
@@ -222,6 +247,7 @@ foreach ($fileInfo in $files) {
             switch ($conflictStrategy) {
                 "skip" {
                     Write-Host "Skipping (conflict): $($fileInfo.Name) already exists at destination"
+                    Write-LogEntry -Action "SKIP" -Source $fileInfo.FullName -Destination $finalDestinationFile -Strategy $dateStrategy
                     $skippedCount++
                     continue
                 }
@@ -242,6 +268,7 @@ foreach ($fileInfo in $files) {
         # Skip if source and destination are same
         if ($fileInfo.FullName -eq $finalDestinationFile) {
             Write-Host "Skipping: Source and destination are identical"
+            Write-LogEntry -Action "SKIP" -Source $fileInfo.FullName -Destination $finalDestinationFile -Strategy $dateStrategy
             $skippedCount++
             continue
         }
@@ -255,11 +282,13 @@ foreach ($fileInfo in $files) {
             } else {
                 Move-Item -LiteralPath $fileInfo.FullName -Destination $finalDestinationFile -Force
             }
+            Write-LogEntry -Action $fileAction.ToUpper() -Source $fileInfo.FullName -Destination $finalDestinationFile -Strategy $dateStrategy
         }
         $movedCount++
     }
     catch {
         Write-Error "Error processing '$($fileInfo.FullName)': $_"
+        Write-LogEntry -Action "ERROR" -Source $fileInfo.FullName -Destination "" -Strategy "$_"
         $errorCount++
     }
 }
