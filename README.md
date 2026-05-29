@@ -6,6 +6,8 @@
 
 Automatically sort your photos and videos into date-based folders. Works on Windows, macOS, and Linux.
 
+![Demo](docs/demo.gif)
+
 ```
 Before:                          After:
 📁 Unsorted/                     📁 Sorted/
