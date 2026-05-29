@@ -24,3 +24,22 @@ RecordedDate
 ItemDate
 DateModified
 DateCreated
+
+[Options]
+# Remove empty directories after moving files (true/false)
+CleanupEmptyDirs=true
+
+# Move or copy files to destination (move/copy)
+FileAction=move
+
+# Folder structure date format (uses .NET date format strings)
+DateFormat=yyyy\\yyyy-MM\\yyyy-MM-dd
+
+# Only process files with these extensions (comma-separated, or * for all)
+IncludeExtensions=*
+
+# Skip files with these extensions (comma-separated, or empty for none)
+ExcludeExtensions=
+
+# What to do when a file with the same name exists at destination (rename/skip/overwrite)
+ConflictStrategy=rename
