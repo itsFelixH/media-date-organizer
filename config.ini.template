@@ -111,6 +111,12 @@ ExcludeExtensions=
 #   overwrite -> replaces the existing file (danger!)
 ConflictStrategy=rename
 
+# How to pick the winning date: priority or earliest
+#   priority  -> first strategy in [Priority] that returns a date wins (default)
+#   earliest  -> evaluates all strategies, picks the oldest date
+# Use "earliest" if you deal with files from apps that strip EXIF (WhatsApp, etc.)
+DateStrategy=priority
+
 # Remove empty directories after moving files (true/false)
 # Only applies when FileAction=move
 CleanupEmptyDirs=true
