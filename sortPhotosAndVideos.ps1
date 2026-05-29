@@ -64,7 +64,7 @@ if (Test-Path -Path $config -PathType Leaf) {
                 }
             }
             "Options" {
-                if ($line -match '^(.+?)=(.+)$') {
+                if ($line -match '^(.+?)=(.*)$') {
                     $key = $Matches[1].Trim()
                     $val = $Matches[2].Trim()
                     switch ($key) {
@@ -123,7 +123,8 @@ function Write-LogEntry {
         [string]$Strategy
     )
     if ($logFile -ne "") {
-        $entry = "{0}`t{1}`t{2}`t{3}`t{4}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Action, $Source, $Destination, $Strategy
+        $safeStrategy = ($Strategy -replace "[\t\r\n]", " ").Trim()
+        $entry = "{0}`t{1}`t{2}`t{3}`t{4}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Action, $Source, $Destination, $safeStrategy
         $entry | Out-File -FilePath $logFile -Encoding utf8 -Append
     }
 }
@@ -275,6 +276,7 @@ foreach ($fileInfo in $files) {
 
         if ($DryRun) {
             Write-Host "[DRY RUN] Would $fileAction '$($fileInfo.FullName)' to '$finalDestinationFile'"
+            Write-LogEntry -Action "DRYRUN" -Source $fileInfo.FullName -Destination $finalDestinationFile -Strategy $dateStrategy
         } else {
             Write-Host "$($fileAction.Substring(0,1).ToUpper() + $fileAction.Substring(1))ing to $finalDestinationFile"
             if ($fileAction -eq "copy") {
