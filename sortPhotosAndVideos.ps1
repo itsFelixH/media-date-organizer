@@ -3,7 +3,6 @@ Param(
     [ValidateScript({ Test-Path -Path $_ -PathType Container })]
     [string]$source,
     [string]$dest = (Join-Path -Path $source -ChildPath "Sorted"),
-    [string]$format = "yyyy\\yyyy-MM\\yyyy-MM-dd",
     [string]$config = (Join-Path -Path $PSScriptRoot -ChildPath "config.ini"),
     [switch]$DryRun
 )
@@ -26,7 +25,7 @@ $priority = @("metadata", "filename", "filesystem")
 $knownDateIds = @(12, 36879, 208, 209, 17, 3, 15, 4)
 $cleanupEmptyDirs = $true
 $fileAction = "move"
-$dateFormat = $format
+$dateFormat = "yyyy\\yyyy-MM\\yyyy-MM-dd"
 $includeExtensions = @()
 $excludeExtensions = @()
 $conflictStrategy = "rename"
