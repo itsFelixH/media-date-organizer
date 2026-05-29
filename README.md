@@ -104,6 +104,7 @@ Then edit `config.ini`. It's heavily commented with examples — open it and you
 | **IncludeExtensions** | Only process these file types | `*` (all) |
 | **ExcludeExtensions** | Skip these file types | *(none)* |
 | **ConflictStrategy** | Name collision handling | `rename` (_1, _2, ...) |
+| **DateStrategy** | How to pick the winning date | `priority` (first match wins) |
 | **CleanupEmptyDirs** | Remove empty folders after moving | `true` |
 | **LogFile** | TSV audit log path | *(disabled)* |
 
