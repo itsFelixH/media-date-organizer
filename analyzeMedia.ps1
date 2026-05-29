@@ -28,6 +28,7 @@ $metadataPropertyMap = @{
 # Defaults
 $priority = @("metadata", "filename", "filesystem")
 $knownDateIds = @(12, 36879, 208, 209, 17, 3, 15, 4)
+$dateStrategy = "priority"
 
 # Load config file if it exists
 if (Test-Path -Path $config -PathType Leaf) {
@@ -58,6 +59,17 @@ if (Test-Path -Path $config -PathType Leaf) {
                     Write-Warning "Unknown metadata property '$line' in config. Available: $($metadataPropertyMap.Keys -join ', ')"
                 }
             }
+            "Options" {
+                if ($line -match '^(.+?)=(.*)$') {
+                    $key = $Matches[1].Trim()
+                    $val = $Matches[2].Trim()
+                    switch ($key) {
+                        "DateStrategy" {
+                            if ($val -in @("priority", "earliest")) { $dateStrategy = $val }
+                        }
+                    }
+                }
+            }
         }
     }
     if ($configPriority.Count -gt 0) { $priority = $configPriority }
@@ -82,6 +94,7 @@ $mdContent.Add("Generated on: $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))")
 $mdContent.Add("")
 $mdContent.Add("## Active Configuration")
 $mdContent.Add("- **Priority order:** $($priority -join ' > ')")
+$mdContent.Add("- **Date strategy:** $dateStrategy")
 $mdContent.Add("- **Metadata properties:** $($knownDateIds -join ', ')")
 $mdContent.Add("")
 $mdContent.Add("---")
@@ -118,12 +131,35 @@ foreach ($fileInfo in $files) {
     # Filesystem
     $strategyResults["filesystem"] = $fileInfo.CreationTime.ToString()
 
-    # Determine winner based on priority order
-    foreach ($strategy in $priority) {
-        if ($strategyResults.ContainsKey($strategy)) {
-            $finalDateSource = $strategy
-            $finalDateValue = $strategyResults[$strategy]
-            break
+    # Determine winner based on date strategy
+    if ($dateStrategy -eq "earliest") {
+        # Parse dates from results and pick earliest
+        $earliestDate = $null
+        $finalDateSource = "None Found"
+        $finalDateValue = "N/A"
+        foreach ($strategy in $priority) {
+            if ($strategyResults.ContainsKey($strategy)) {
+                $valStr = $strategyResults[$strategy]
+                $parsedDate = [System.DateTime]::MinValue
+                # Try to parse the date portion (before any parenthetical info)
+                $datePart = ($valStr -split '\(')[0].Trim()
+                if ([DateTime]::TryParse($datePart, [ref]$parsedDate)) {
+                    if ($null -eq $earliestDate -or $parsedDate -lt $earliestDate) {
+                        $earliestDate = $parsedDate
+                        $finalDateSource = $strategy
+                        $finalDateValue = $strategyResults[$strategy]
+                    }
+                }
+            }
+        }
+    } else {
+        # Priority mode: first match wins
+        foreach ($strategy in $priority) {
+            if ($strategyResults.ContainsKey($strategy)) {
+                $finalDateSource = $strategy
+                $finalDateValue = $strategyResults[$strategy]
+                break
+            }
         }
     }
 

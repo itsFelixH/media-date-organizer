@@ -13,6 +13,7 @@ CONFIG=""
 
 PRIORITY=(metadata filename filesystem)
 METADATA_PROPERTIES=(DateTaken DateTimeOriginal MediaCreated MediaCreatedAlt RecordedDate ItemDate DateModified DateCreated)
+DATE_STRATEGY="priority"
 
 # --- Usage ---
 usage() {
@@ -110,6 +111,21 @@ parse_config() {
                         echo "WARNING: Unknown metadata property '$line' in config." >&2
                         ;;
                 esac
+                ;;
+            Options)
+                if [[ "$line" =~ ^(.+)=(.*)$ ]]; then
+                    local key="${BASH_REMATCH[1]}"
+                    local val="${BASH_REMATCH[2]}"
+                    key="$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+                    val="$(echo "$val" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+                    case "$key" in
+                        DateStrategy)
+                            if [[ "$val" =~ ^(priority|earliest)$ ]]; then
+                                DATE_STRATEGY="$val"
+                            fi
+                            ;;
+                    esac
+                fi
                 ;;
         esac
     done < "$CONFIG"
@@ -212,7 +228,8 @@ REPORT_PATH="$SCRIPT_DIR/property_report_${REPORT_TIMESTAMP}.md"
     echo "Generated on: $(date '+%Y-%m-%d %H:%M:%S')"
     echo ""
     echo "## Active Configuration"
-    echo "- **Priority order:** $(IFS=' → '; echo "${PRIORITY[*]}")"
+    echo "- **Priority order:** $(IFS=' > '; echo "${PRIORITY[*]}")"
+    echo "- **Date strategy:** $DATE_STRATEGY"
     echo "- **Metadata properties:** $(IFS=', '; echo "${METADATA_PROPERTIES[*]}")"
     echo ""
     echo "---"
@@ -242,27 +259,46 @@ REPORT_PATH="$SCRIPT_DIR/property_report_${REPORT_TIMESTAMP}.md"
         # Determine winner
         winner=""
         winner_value=""
-        for strategy in "${PRIORITY[@]}"; do
-            if [[ -n "${strategy_results[$strategy]:-}" ]]; then
-                winner="$strategy"
-                winner_value="${strategy_results[$strategy]}"
-                break
-            fi
-        done
+
+        if [[ "$DATE_STRATEGY" == "earliest" ]]; then
+            # Pick the earliest date across all strategies
+            local earliest_date=""
+            for strategy in "${PRIORITY[@]}"; do
+                if [[ -n "${strategy_results[$strategy]:-}" ]]; then
+                    local date_only="${strategy_results[$strategy]%% *}"
+                    # Extract just YYYY-MM-DD portion
+                    date_only="${date_only:0:10}"
+                    if [[ -z "$earliest_date" || "$date_only" < "$earliest_date" ]]; then
+                        earliest_date="$date_only"
+                        winner="$strategy"
+                        winner_value="${strategy_results[$strategy]}"
+                    fi
+                fi
+            done
+        else
+            # Priority mode: first match wins
+            for strategy in "${PRIORITY[@]}"; do
+                if [[ -n "${strategy_results[$strategy]:-}" ]]; then
+                    winner="$strategy"
+                    winner_value="${strategy_results[$strategy]}"
+                    break
+                fi
+            done
+        fi
 
         if [[ -z "$winner" ]]; then
             winner="filesystem (fallback)"
             winner_value="${strategy_results[filesystem]:-unknown}"
         fi
 
-        echo "- **Winner:** $winner → \`$winner_value\`"
+        echo "- **Winner:** $winner > \`$winner_value\`"
         echo ""
         echo "| Strategy | Result |"
         echo "|---|---|"
         for strategy in "${PRIORITY[@]}"; do
-            val="${strategy_results[$strategy]:-—}"
+            val="${strategy_results[$strategy]:--}"
             marker=""
-            [[ "$strategy" == "$winner" ]] && marker=" ✓"
+            [[ "$strategy" == "$winner" ]] && marker=" *"
             echo "| ${strategy}${marker} | $val |"
         done
         echo ""
