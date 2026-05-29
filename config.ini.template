@@ -18,6 +18,11 @@
 #
 #   Skip filename entirely (only use embedded metadata or filesystem):
 #     metadata / filesystem
+#
+# Note: Apps like WhatsApp, Instagram, and Snapseed strip EXIF metadata
+# from images. In those cases, the filename is often the only surviving
+# record of the original date. If you deal with files from these sources,
+# consider putting "filename" first.
 # ============================================================================
 
 [Priority]

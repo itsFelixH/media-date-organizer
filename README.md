@@ -64,6 +64,8 @@ The script tries multiple strategies in order and uses the first date it finds:
 
 This order is configurable. See [Configuration](#configuration-optional) below.
 
+> **Tip:** Apps like WhatsApp, Instagram, and Snapseed strip EXIF metadata for privacy or re-encode images. In those cases, the filename is the only surviving record of the original date. If you deal with files from these sources, put `filename` first in your config.
+
 ---
 
 ## Parameters
