@@ -20,6 +20,7 @@ DATE_FORMAT_UNIX="%Y/%Y-%m/%Y-%m-%d"
 INCLUDE_EXTENSIONS=()
 EXCLUDE_EXTENSIONS=()
 CONFLICT_STRATEGY="rename"
+DATE_STRATEGY="priority"
 CLEANUP_EMPTY_DIRS=true
 LOG_FILE=""
 
@@ -169,6 +170,13 @@ parse_config() {
                                 echo "WARNING: Invalid ConflictStrategy '$val'. Available: rename, skip, overwrite" >&2
                             fi
                             ;;
+                        DateStrategy)
+                            if [[ "$val" =~ ^(priority|earliest)$ ]]; then
+                                DATE_STRATEGY="$val"
+                            else
+                                echo "WARNING: Invalid DateStrategy '$val'. Available: priority, earliest" >&2
+                            fi
+                            ;;
                         CleanupEmptyDirs)
                             [[ "$val" == "true" ]] && CLEANUP_EMPTY_DIRS=true || CLEANUP_EMPTY_DIRS=false
                             ;;
@@ -314,23 +322,56 @@ get_file_date() {
     basename="$(basename "$filepath")"
     basename="${basename%.*}"
 
-    for strategy in "${PRIORITY[@]}"; do
-        local result=""
-        case "$strategy" in
-            filename)
-                result="$(get_date_from_filename "$basename")" && { echo "$result|$strategy"; return 0; }
-                ;;
-            metadata)
-                result="$(get_date_from_metadata "$filepath")" && { echo "$result|$strategy"; return 0; }
-                ;;
-            filesystem)
-                result="$(get_date_from_filesystem "$filepath")" && { echo "$result|$strategy"; return 0; }
-                ;;
-            *)
-                echo "WARNING: Unknown priority strategy: $strategy" >&2
-                ;;
-        esac
-    done
+    if [[ "$DATE_STRATEGY" == "earliest" ]]; then
+        # Evaluate all strategies and pick the earliest date
+        local earliest_date=""
+        local earliest_strategy=""
+
+        for strategy in "${PRIORITY[@]}"; do
+            local result=""
+            case "$strategy" in
+                filename)
+                    result="$(get_date_from_filename "$basename" 2>/dev/null)" || continue
+                    ;;
+                metadata)
+                    result="$(get_date_from_metadata "$filepath" 2>/dev/null)" || continue
+                    ;;
+                filesystem)
+                    result="$(get_date_from_filesystem "$filepath" 2>/dev/null)" || continue
+                    ;;
+            esac
+            # Strip any extra info after the date (e.g. metadata adds "(exif:tag)")
+            local date_only="${result%% *}"
+            if [[ -z "$earliest_date" || "$date_only" < "$earliest_date" ]]; then
+                earliest_date="$date_only"
+                earliest_strategy="$strategy"
+            fi
+        done
+
+        if [[ -n "$earliest_date" ]]; then
+            echo "$earliest_date|$earliest_strategy"
+            return 0
+        fi
+    else
+        # Priority mode: first match wins
+        for strategy in "${PRIORITY[@]}"; do
+            local result=""
+            case "$strategy" in
+                filename)
+                    result="$(get_date_from_filename "$basename")" && { echo "$result|$strategy"; return 0; }
+                    ;;
+                metadata)
+                    result="$(get_date_from_metadata "$filepath")" && { echo "$result|$strategy"; return 0; }
+                    ;;
+                filesystem)
+                    result="$(get_date_from_filesystem "$filepath")" && { echo "$result|$strategy"; return 0; }
+                    ;;
+                *)
+                    echo "WARNING: Unknown priority strategy: $strategy" >&2
+                    ;;
+            esac
+        done
+    fi
 
     # Ultimate fallback
     echo "WARNING: All strategies failed for $(basename "$filepath"). Using filesystem date." >&2

@@ -30,6 +30,7 @@ $dateFormat = "yyyy\\yyyy-MM\\yyyy-MM-dd"
 $includeExtensions = @()
 $excludeExtensions = @()
 $conflictStrategy = "rename"
+$dateStrategy = "priority"
 $logFile = ""
 
 # Load config file if it exists
@@ -88,6 +89,10 @@ if (Test-Path -Path $config -PathType Leaf) {
                         "ConflictStrategy" {
                             if ($val -in @("rename", "skip", "overwrite")) { $conflictStrategy = $val }
                             else { Write-Warning "Invalid ConflictStrategy '$val'. Available: rename, skip, overwrite" }
+                        }
+                        "DateStrategy" {
+                            if ($val -in @("priority", "earliest")) { $dateStrategy = $val }
+                            else { Write-Warning "Invalid DateStrategy '$val'. Available: priority, earliest" }
                         }
                         "LogFile" { $logFile = $val }
                         default { Write-Warning "Unknown option '$key' in config." }
@@ -196,15 +201,36 @@ function Get-File-Date {
         [System.IO.FileInfo]$FileObject
     )
 
-    foreach ($strategy in $priority) {
-        $result = switch ($strategy) {
-            "filename"   { Get-DateFromFilename -FileObject $FileObject }
-            "metadata"   { Get-DateFromMetadata -FileObject $FileObject }
-            "filesystem" { Get-DateFromFilesystem -FileObject $FileObject }
-            default      { Write-Warning "Unknown priority strategy: $strategy"; $null }
+    if ($dateStrategy -eq "earliest") {
+        # Evaluate all strategies and pick the earliest date
+        $candidates = @()
+        foreach ($strategy in $priority) {
+            $result = switch ($strategy) {
+                "filename"   { Get-DateFromFilename -FileObject $FileObject }
+                "metadata"   { Get-DateFromMetadata -FileObject $FileObject }
+                "filesystem" { Get-DateFromFilesystem -FileObject $FileObject }
+                default      { $null }
+            }
+            if ($null -ne $result) {
+                $candidates += @{ Date = $result; Strategy = $strategy }
+            }
         }
-        if ($null -ne $result) {
-            return @{ Date = $result; Strategy = $strategy }
+        if ($candidates.Count -gt 0) {
+            $winner = $candidates | Sort-Object { $_.Date } | Select-Object -First 1
+            return $winner
+        }
+    } else {
+        # Priority mode: first match wins
+        foreach ($strategy in $priority) {
+            $result = switch ($strategy) {
+                "filename"   { Get-DateFromFilename -FileObject $FileObject }
+                "metadata"   { Get-DateFromMetadata -FileObject $FileObject }
+                "filesystem" { Get-DateFromFilesystem -FileObject $FileObject }
+                default      { Write-Warning "Unknown priority strategy: $strategy"; $null }
+            }
+            if ($null -ne $result) {
+                return @{ Date = $result; Strategy = $strategy }
+            }
         }
     }
 
