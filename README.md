@@ -1,72 +1,122 @@
 # media-date-organizer
 
-A collection of PowerShell scripts to analyze and organize photos and videos into date-based folders using filename patterns and Windows Shell metadata.
+Organize your photos and videos into date-based folders automatically. Works with EXIF metadata, filename dates, and file system dates.
 
-## 📌 Features
-
-- Supports all common image/video formats
-- Metadata priority:\
-``Filename Date`` → ``Date Taken (EXIF)`` → ``Media Created (Encoded)`` → ``General Item Date`` → ``File System Date``
-- Auto-renaming for duplicates (IMG_0001.jpg → IMG_0001_1.jpg)
-- **Dry Run mode** to preview changes without moving files
-- Preserves file extensions
-- Progress reporting
-
-## 🚀 Usage
+## Quick Start
 
 ```powershell
-.\media-date-organizer.ps1 -source "C:\Path\To\Your\Media"
+.\sortPhotosAndVideos.ps1 -source "C:\Users\You\Pictures"
 ```
 
-### Optional Parameters
+That's it. Your files get sorted into `Pictures\Sorted\2024\2024-06\2024-06-15\` based on when they were taken.
+
+### Preview first (recommended)
+
+```powershell
+.\sortPhotosAndVideos.ps1 -source "C:\Users\You\Pictures" -DryRun
+```
+
+Shows what would happen without moving anything.
+
+## How It Decides the Date
+
+The script tries multiple strategies in order and uses the first date it finds:
+
+| # | Strategy | What it checks |
+|---|----------|----------------|
+| 1 | **Metadata** | EXIF DateTaken, DateTimeOriginal, MediaCreated, etc. |
+| 2 | **Filename** | Patterns like `IMG_20231025`, `2023-10-25`, `2023_10_25` |
+| 3 | **Filesystem** | File creation date (last resort) |
+
+This order works well for most people — metadata is the most reliable source since it survives renames.
+
+## Parameters
 
 | Parameter | Description | Default |
-|-|-||
-| `-source` | Path to the folder containing media files | *Required* |
-| `-dest` | Root destination folder | `<source>\Sorted` |
-| `-format` | Date format for folder structure | `yyyy\\yyyy-MM\\yyyy-MM-dd` |
-| `-DryRun` | Preview the organization without creating folders or moving files | `$false` |
+|-----------|-------------|---------|
+| `-source` | Folder containing your media | *Required* |
+| `-dest` | Where sorted files go | `<source>\Sorted` |
+| `-format` | Folder structure format | `yyyy\yyyy-MM\yyyy-MM-dd` |
+| `-config` | Path to config file | `config.ini` next to script |
+| `-DryRun` | Preview without moving files | off |
 
-## 🔍 Diagnostic Tool (`analyzeMedia.ps1`)
+## Configuration (Optional)
 
-Before running the main script, you can use `analyzeMedia.ps1` to see exactly how your files will be processed.
+The script works out of the box with no config file. If you want to customize the priority order:
 
-1. Place sample files in the `\examples` folder.
-2. Run the script:
+1. Copy the template:
+   ```powershell
+   Copy-Item config.ini.template config.ini
+   ```
 
+2. Edit `config.ini`:
+   ```ini
+   # Swap order to trust filenames over metadata:
+   [Priority]
+   filename
+   metadata
+   filesystem
+
+   # Only check these metadata fields:
+   [MetadataProperties]
+   DateTaken
+   DateTimeOriginal
+   MediaCreated
+   ```
+
+### Available strategies
+
+- `filename` — extracts date from filename patterns (e.g. `20231025`, `2023-10-25`)
+- `metadata` — reads Windows Shell properties (EXIF, media encoded dates)
+- `filesystem` — uses file creation time
+
+### Available metadata properties
+
+| Name | What it is |
+|------|-----------|
+| `DateTaken` | EXIF Date Taken (photos) |
+| `DateTimeOriginal` | EXIF Date/Time Original |
+| `MediaCreated` | Media encoded date (videos) |
+| `MediaCreatedAlt` | Same as above, alternate locale ID |
+| `RecordedDate` | Recorded date (audio/video) |
+| `ItemDate` | General item date |
+| `DateModified` | File modified date |
+| `DateCreated` | File system creation date |
+
+## Diagnostic Tool
+
+Not sure how your files will be sorted? Use `analyzeMedia.ps1` to inspect metadata:
+
+1. Put sample files in the `examples/` folder
+2. Run:
    ```powershell
    .\analyzeMedia.ps1
    ```
+3. Check the generated `property_report_*.md` — shows which date source would be chosen for each file and all available metadata
 
-3. Review the generated `property_report_*.md` file to see:
-   - The **Script Decision** (which date source was chosen).
-   - A list of all date-related Windows Shell properties found.
-   - Specific markers showing which properties are considered **(Priority)**.
+## Folder Structure Examples
 
-## ⚠ Notes
+| File | Sorted to |
+|------|-----------|
+| `DSC02345.jpg` (taken 2023-06-15) | `Sorted\2023\2023-06\2023-06-15\DSC02345.jpg` |
+| `VID_20240101_143022.mp4` | `Sorted\2024\2024-01\2024-01-01\VID_20240101_143022.mp4` |
+| `IMG_0001.jpg` (no date anywhere) | `Sorted\2019\2019-03\2019-03-22\IMG_0001.jpg` (uses creation date) |
 
-1. **Filename Logic:**\
-The script prioritizes dates found in filenames (e.g., `IMG_20231025_...`) as these are often preserved when metadata is stripped by messaging apps.
-2. **Invisible Characters:**\
-Windows often adds hidden Unicode markers (BiDi) to date strings. Both scripts automatically strip these to ensure valid parsing.
-3. **Network Drives:**\
-Metadata extraction requires local files (mapped drives okay)
-4. **File Types:**\
-RAW camera files (CR3/NEF) require Windows 10+ for metadata
-5. **Permissions:**\
-Run as Administrator if accessing protected directories
-6. **Testing:**\
-Always test with copies first!
+Custom format: `-format "yyyy\\MM-MMM"` → `2024\04-Apr`
 
-## 📁 Folder Structure Examples
+## Good to Know
 
-| Original | Destination |
-| ------- | ----- |
-| ``DSC02345.jpg`` (2023-06-15) | ``\Sorted\2023\2023-06\2023-06-15\DSC02345.jpg`` |
-| ``VID_20240101.mp4`` | ``\Sorted\2024\2024-01\2024-01-01\VID_20240101.mp4`` |
+- **Duplicates** are auto-renamed (`IMG_0001.jpg` → `IMG_0001_1.jpg`)
+- **Windows only** — uses Windows Shell for metadata extraction
+- **Network drives** work if mapped; UNC paths may not expose metadata
+- **RAW files** (CR3, NEF) need Windows 10+ for metadata support
+- **Always test with `-DryRun` first** or use copies
 
-Custom formats: ``-format "yyyy\\MM-MMM"`` → ``2024\04-Apr``
+## Requirements
 
-## 🙌 Contributions
+- Windows PowerShell 5.1+ or PowerShell 7+
+- Windows (uses COM Shell.Application for metadata)
 
-PRs, ideas, and feedback are welcome!
+## Contributing
+
+PRs, issues, and ideas welcome.
