@@ -131,7 +131,7 @@ LogFile=
 | `ExcludeExtensions` | empty or comma-separated | *(empty)* | e.g. `txt,db,ini` |
 | `ConflictStrategy` | `rename`, `skip`, `overwrite` | `rename` | `rename` appends `_1`, `_2`, etc. |
 | `CleanupEmptyDirs` | `true`, `false` | `true` | Only applies when `FileAction=move` |
-| `LogFile` | file path or empty | *(empty)* | TSV log with timestamp, action, source, destination, strategy |
+| `LogFile` | file path or empty | *(empty)* | TSV log with timestamp, action, source, destination, strategy. Also logs during `-DryRun` (as `DRYRUN`). |
 
 ## Diagnostic Tool
 
