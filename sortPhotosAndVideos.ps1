@@ -268,7 +268,7 @@ foreach ($fileInfo in $files) {
                     $newNameIndex++
                 }
             }
-            # "overwrite" — keep the same path, -Force will overwrite
+            # "overwrite" - keep the same path, -Force will overwrite
         }
 
         # Skip if source and destination are same

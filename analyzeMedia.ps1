@@ -80,7 +80,7 @@ $mdContent.Add("# Media Metadata Analysis Report")
 $mdContent.Add("Generated on: $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))")
 $mdContent.Add("")
 $mdContent.Add("## Active Configuration")
-$mdContent.Add("- **Priority order:** $($priority -join ' → ')")
+$mdContent.Add("- **Priority order:** $($priority -join ' > ')")
 $mdContent.Add("- **Metadata properties:** $($knownDateIds -join ', ')")
 $mdContent.Add("")
 $mdContent.Add("---")
@@ -133,13 +133,13 @@ foreach ($fileInfo in $files) {
     }
 
     $mdContent.Add("## File: $($fileInfo.Name)")
-    $mdContent.Add("- **Winner:** $finalDateSource → ``$finalDateValue``")
+    $mdContent.Add("- **Winner:** $finalDateSource > ``$finalDateValue``")
     $mdContent.Add("")
     $mdContent.Add("| Strategy | Result |")
     $mdContent.Add("|---|---|")
     foreach ($strategy in $priority) {
-        $val = if ($strategyResults.ContainsKey($strategy)) { $strategyResults[$strategy] } else { "—" }
-        $marker = if ($strategy -eq $finalDateSource) { " ✓" } else { "" }
+        $val = if ($strategyResults.ContainsKey($strategy)) { $strategyResults[$strategy] } else { "-" }
+        $marker = if ($strategy -eq $finalDateSource) { " *" } else { "" }
         $mdContent.Add("| $strategy$marker | $val |")
     }
     $mdContent.Add("")
