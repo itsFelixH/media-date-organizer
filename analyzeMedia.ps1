@@ -1,20 +1,16 @@
 <#
 .SYNOPSIS
-    Analyzes files in the 'examples' folder and generates a Markdown report of all available shell properties.
+    Analyzes files in a folder and generates a Markdown report of all available shell properties.
 #>
 
 Param(
+    [ValidateScript({ Test-Path -Path $_ -PathType Container })]
+    [string]$source = (Join-Path -Path $PSScriptRoot -ChildPath "examples"),
     [string]$config = (Join-Path -Path $PSScriptRoot -ChildPath "config.ini")
 )
 
-$examplesPath = Join-Path -Path $PSScriptRoot -ChildPath "examples"
 $reportTimestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $reportPath = Join-Path -Path $PSScriptRoot -ChildPath "property_report_$reportTimestamp.md"
-
-if (-not (Test-Path -Path $examplesPath)) {
-    Write-Error "The directory '$examplesPath' does not exist. Please create it and add sample files."
-    return
-}
 
 # --- Configuration ---
 # Map of friendly names to Windows Shell property IDs
@@ -70,14 +66,14 @@ if (Test-Path -Path $config -PathType Leaf) {
     Write-Host "No config file found at '$config'. Using defaults."
 }
 
-$files = Get-ChildItem -Path $examplesPath -File
+$files = Get-ChildItem -Path $source -File
 if ($files.Count -eq 0) {
-    Write-Host "No files found in '$examplesPath' to analyze."
+    Write-Host "No files found in '$source' to analyze."
     return
 }
 
 $shell = New-Object -ComObject Shell.Application
-$folder = $shell.NameSpace($examplesPath)
+$folder = $shell.NameSpace($source)
 
 $mdContent = New-Object System.Collections.Generic.List[string]
 $mdContent.Add("# Media Metadata Analysis Report")
@@ -89,7 +85,7 @@ $mdContent.Add("- **Metadata properties:** $($knownDateIds -join ', ')")
 $mdContent.Add("")
 $mdContent.Add("---")
 $mdContent.Add("")
-$mdContent.Add("This report lists the **Extracted Filename Date** and all date-related Windows Shell properties for files in the ``/examples`` folder.")
+$mdContent.Add("This report lists the **Extracted Filename Date** and all date-related Windows Shell properties for files in ``$source``.")
 $mdContent.Add("")
 
 foreach ($fileInfo in $files) {
