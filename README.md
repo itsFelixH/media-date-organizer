@@ -157,10 +157,11 @@ Not sure how your files will be sorted? Analyze them first:
 <summary><strong>What the report shows</strong></summary>
 
 Generates a `property_report_*.md` showing:
-- The active configuration (priority order, metadata properties)
-- Which strategy wins for each file (marked with ✓)
+- The active configuration (priority order, date strategy, metadata properties)
+- Which strategy wins for each file
 - What every strategy *would* return (helps you tune priority order)
 - All available date-related metadata fields
+- **Recommendations** — suggests optimal settings based on your actual files
 
 </details>
 
