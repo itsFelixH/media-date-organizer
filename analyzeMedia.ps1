@@ -102,6 +102,16 @@ $mdContent.Add("")
 $mdContent.Add("This report lists the **Extracted Filename Date** and all date-related Windows Shell properties for files in ``$source``.")
 $mdContent.Add("")
 
+# --- Tracking for recommendations ---
+$totalAnalyzed = 0
+$hasFilenameDate = 0
+$hasMetadataDate = 0
+$filenameOlderCount = 0
+$metadataOlderCount = 0
+$datesAgreeCount = 0
+$noMetadataFiles = @()
+$noFilenameFiles = @()
+
 foreach ($fileInfo in $files) {
     Write-Host "Analyzing: $($fileInfo.Name)..."
     $item = $folder.ParseName($fileInfo.Name)
@@ -130,6 +140,33 @@ foreach ($fileInfo in $files) {
     }
     # Filesystem
     $strategyResults["filesystem"] = $fileInfo.CreationTime.ToString()
+
+    # --- Track stats for recommendations ---
+    $totalAnalyzed++
+    $hasFilenameDateBool = $strategyResults.ContainsKey("filename")
+    $hasMetadataDateBool = $strategyResults.ContainsKey("metadata")
+
+    if ($hasFilenameDateBool) { $hasFilenameDate++ } else { $noFilenameFiles += $fileInfo.Name }
+    if ($hasMetadataDateBool) { $hasMetadataDate++ } else { $noMetadataFiles += $fileInfo.Name }
+
+    # Compare filename vs metadata dates when both exist
+    if ($hasFilenameDateBool -and $hasMetadataDateBool) {
+        $fnDate = [System.DateTime]::MinValue
+        $mdDate = [System.DateTime]::MinValue
+        $fnParsed = [DateTime]::TryParse($strategyResults["filename"], [ref]$fnDate)
+        $mdDatePart = ($strategyResults["metadata"] -split '\(')[0].Trim()
+        $mdParsed = [DateTime]::TryParse($mdDatePart, [ref]$mdDate)
+
+        if ($fnParsed -and $mdParsed) {
+            if ($fnDate.Date -eq $mdDate.Date) {
+                $datesAgreeCount++
+            } elseif ($fnDate -lt $mdDate) {
+                $filenameOlderCount++
+            } else {
+                $metadataOlderCount++
+            }
+        }
+    }
 
     # Determine winner based on date strategy
     if ($dateStrategy -eq "earliest") {
@@ -203,6 +240,108 @@ foreach ($fileInfo in $files) {
     }
     $mdContent.Add("")
 }
+
+# --- Recommendations ---
+$mdContent.Add("---")
+$mdContent.Add("")
+$mdContent.Add("## Recommendations")
+$mdContent.Add("")
+$mdContent.Add("Based on analyzing **$totalAnalyzed files**:")
+$mdContent.Add("")
+
+# Coverage stats
+$mdContent.Add("### What was found")
+$mdContent.Add("")
+$mdContent.Add("| Strategy | Files with a date | Files without |")
+$mdContent.Add("|---|---|---|")
+$mdContent.Add("| Filename | $hasFilenameDate / $totalAnalyzed | $($totalAnalyzed - $hasFilenameDate) |")
+$mdContent.Add("| Metadata | $hasMetadataDate / $totalAnalyzed | $($totalAnalyzed - $hasMetadataDate) |")
+$mdContent.Add("| Filesystem | $totalAnalyzed / $totalAnalyzed | 0 (always available) |")
+$mdContent.Add("")
+
+# Agreement analysis
+$bothHaveDate = $datesAgreeCount + $filenameOlderCount + $metadataOlderCount
+if ($bothHaveDate -gt 0) {
+    $mdContent.Add("### When both filename and metadata have a date ($bothHaveDate files)")
+    $mdContent.Add("")
+    $mdContent.Add("| Result | Count |")
+    $mdContent.Add("|---|---|")
+    $mdContent.Add("| They agree (same day) | $datesAgreeCount |")
+    $mdContent.Add("| Filename is older | $filenameOlderCount |")
+    $mdContent.Add("| Metadata is older | $metadataOlderCount |")
+    $mdContent.Add("")
+}
+
+# Suggested settings
+$mdContent.Add("### Suggested settings")
+$mdContent.Add("")
+
+if ($hasMetadataDate -eq $totalAnalyzed -and $hasFilenameDate -eq $totalAnalyzed) {
+    # Both always available
+    if ($datesAgreeCount -eq $bothHaveDate) {
+        $mdContent.Add("All your files have both filename dates and metadata, and they always agree.")
+        $mdContent.Add("Either priority order works. The default (metadata first) is fine.")
+    } elseif ($filenameOlderCount -gt $metadataOlderCount) {
+        $mdContent.Add("Filename dates are often older than metadata dates. This usually means")
+        $mdContent.Add("metadata was modified (e.g. by editing software) while filenames kept the original date.")
+        $mdContent.Add("")
+        $mdContent.Add("**Recommended:**")
+        $mdContent.Add("``````ini")
+        $mdContent.Add("[Priority]")
+        $mdContent.Add("filename")
+        $mdContent.Add("metadata")
+        $mdContent.Add("filesystem")
+        $mdContent.Add("``````")
+        $mdContent.Add("")
+        $mdContent.Add("Or use ``DateStrategy=earliest`` to always pick the oldest date automatically.")
+    } else {
+        $mdContent.Add("Metadata dates are generally older or equal to filename dates.")
+        $mdContent.Add("The default priority (metadata first) is a good fit.")
+    }
+} elseif ($hasMetadataDate -lt $totalAnalyzed -and $hasFilenameDate -eq $totalAnalyzed) {
+    # Filename always available, metadata sometimes missing
+    $mdContent.Add("Some files are missing metadata (likely from WhatsApp, Instagram, or similar apps")
+    $mdContent.Add("that strip EXIF data). All files have dates in their filenames.")
+    $mdContent.Add("")
+    $mdContent.Add("**Recommended:**")
+    $mdContent.Add("``````ini")
+    $mdContent.Add("[Priority]")
+    $mdContent.Add("filename")
+    $mdContent.Add("metadata")
+    $mdContent.Add("filesystem")
+    $mdContent.Add("``````")
+    if ($noMetadataFiles.Count -le 5) {
+        $mdContent.Add("")
+        $mdContent.Add("Files without metadata: $($noMetadataFiles -join ', ')")
+    }
+} elseif ($hasFilenameDate -lt $totalAnalyzed -and $hasMetadataDate -eq $totalAnalyzed) {
+    # Metadata always available, filename sometimes missing
+    $mdContent.Add("Some files don't have a recognizable date in their filename,")
+    $mdContent.Add("but all files have metadata. The default priority (metadata first) is ideal.")
+    if ($noFilenameFiles.Count -le 5) {
+        $mdContent.Add("")
+        $mdContent.Add("Files without filename date: $($noFilenameFiles -join ', ')")
+    }
+} else {
+    # Mixed - some missing from both
+    $mdContent.Add("Your files are a mix - some lack metadata, some lack filename dates.")
+    $mdContent.Add("Consider using ``DateStrategy=earliest`` to get the best result from whatever is available.")
+    $mdContent.Add("")
+    $mdContent.Add("``````ini")
+    $mdContent.Add("[Options]")
+    $mdContent.Add("DateStrategy=earliest")
+    $mdContent.Add("``````")
+    if ($noMetadataFiles.Count -le 5 -and $noMetadataFiles.Count -gt 0) {
+        $mdContent.Add("")
+        $mdContent.Add("Files without metadata: $($noMetadataFiles -join ', ')")
+    }
+    if ($noFilenameFiles.Count -le 5 -and $noFilenameFiles.Count -gt 0) {
+        $mdContent.Add("")
+        $mdContent.Add("Files without filename date: $($noFilenameFiles -join ', ')")
+    }
+}
+
+$mdContent.Add("")
 
 $mdContent | Out-File -FilePath $reportPath -Encoding utf8
 Write-Host "Success! Property report generated at: $reportPath"

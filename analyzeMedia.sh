@@ -237,6 +237,16 @@ REPORT_PATH="$SCRIPT_DIR/property_report_${REPORT_TIMESTAMP}.md"
     echo "This report lists date-extraction results for files in \`$SOURCE\`."
     echo ""
 
+    # --- Tracking variables ---
+    total_analyzed=0
+    has_filename_date=0
+    has_metadata_date=0
+    filename_older_count=0
+    metadata_older_count=0
+    dates_agree_count=0
+    no_metadata_files=()
+    no_filename_files=()
+
     for filepath in "${files[@]}"; do
         filename="$(basename "$filepath")"
         basename_noext="${filename%.*}"
@@ -255,6 +265,32 @@ REPORT_PATH="$SCRIPT_DIR/property_report_${REPORT_TIMESTAMP}.md"
 
         # Filesystem
         fs_result="$(get_date_from_filesystem "$filepath" 2>/dev/null)" && strategy_results[filesystem]="$fs_result" || true
+
+        # --- Track stats ---
+        ((total_analyzed++))
+        if [[ -n "${strategy_results[filename]:-}" ]]; then
+            ((has_filename_date++))
+        else
+            no_filename_files+=("$filename")
+        fi
+        if [[ -n "${strategy_results[metadata]:-}" ]]; then
+            ((has_metadata_date++))
+        else
+            no_metadata_files+=("$filename")
+        fi
+
+        # Compare filename vs metadata when both exist
+        if [[ -n "${strategy_results[filename]:-}" && -n "${strategy_results[metadata]:-}" ]]; then
+            fn_date="${strategy_results[filename]:0:10}"
+            md_date="${strategy_results[metadata]:0:10}"
+            if [[ "$fn_date" == "$md_date" ]]; then
+                ((dates_agree_count++))
+            elif [[ "$fn_date" < "$md_date" ]]; then
+                ((filename_older_count++))
+            else
+                ((metadata_older_count++))
+            fi
+        fi
 
         # Determine winner
         winner=""
@@ -324,6 +360,99 @@ REPORT_PATH="$SCRIPT_DIR/property_report_${REPORT_TIMESTAMP}.md"
 
         unset strategy_results
     done
+
+    # --- Recommendations ---
+    echo "---"
+    echo ""
+    echo "## Recommendations"
+    echo ""
+    echo "Based on analyzing **$total_analyzed files**:"
+    echo ""
+    echo "### What was found"
+    echo ""
+    echo "| Strategy | Files with a date | Files without |"
+    echo "|---|---|---|"
+    echo "| Filename | $has_filename_date / $total_analyzed | $((total_analyzed - has_filename_date)) |"
+    echo "| Metadata | $has_metadata_date / $total_analyzed | $((total_analyzed - has_metadata_date)) |"
+    echo "| Filesystem | $total_analyzed / $total_analyzed | 0 (always available) |"
+    echo ""
+
+    both_have=$((dates_agree_count + filename_older_count + metadata_older_count))
+    if [[ $both_have -gt 0 ]]; then
+        echo "### When both filename and metadata have a date ($both_have files)"
+        echo ""
+        echo "| Result | Count |"
+        echo "|---|---|"
+        echo "| They agree (same day) | $dates_agree_count |"
+        echo "| Filename is older | $filename_older_count |"
+        echo "| Metadata is older | $metadata_older_count |"
+        echo ""
+    fi
+
+    echo "### Suggested settings"
+    echo ""
+
+    if [[ $has_metadata_date -eq $total_analyzed && $has_filename_date -eq $total_analyzed ]]; then
+        if [[ $dates_agree_count -eq $both_have ]]; then
+            echo "All your files have both filename dates and metadata, and they always agree."
+            echo "Either priority order works. The default (metadata first) is fine."
+        elif [[ $filename_older_count -gt $metadata_older_count ]]; then
+            echo "Filename dates are often older than metadata dates. This usually means"
+            echo "metadata was modified (e.g. by editing software) while filenames kept the original date."
+            echo ""
+            echo "**Recommended:**"
+            echo "\`\`\`ini"
+            echo "[Priority]"
+            echo "filename"
+            echo "metadata"
+            echo "filesystem"
+            echo "\`\`\`"
+            echo ""
+            echo "Or use \`DateStrategy=earliest\` to always pick the oldest date automatically."
+        else
+            echo "Metadata dates are generally older or equal to filename dates."
+            echo "The default priority (metadata first) is a good fit."
+        fi
+    elif [[ $has_metadata_date -lt $total_analyzed && $has_filename_date -eq $total_analyzed ]]; then
+        echo "Some files are missing metadata (likely from WhatsApp, Instagram, or similar apps"
+        echo "that strip EXIF data). All files have dates in their filenames."
+        echo ""
+        echo "**Recommended:**"
+        echo "\`\`\`ini"
+        echo "[Priority]"
+        echo "filename"
+        echo "metadata"
+        echo "filesystem"
+        echo "\`\`\`"
+        if [[ ${#no_metadata_files[@]} -le 5 && ${#no_metadata_files[@]} -gt 0 ]]; then
+            echo ""
+            echo "Files without metadata: $(IFS=', '; echo "${no_metadata_files[*]}")"
+        fi
+    elif [[ $has_filename_date -lt $total_analyzed && $has_metadata_date -eq $total_analyzed ]]; then
+        echo "Some files don't have a recognizable date in their filename,"
+        echo "but all files have metadata. The default priority (metadata first) is ideal."
+        if [[ ${#no_filename_files[@]} -le 5 && ${#no_filename_files[@]} -gt 0 ]]; then
+            echo ""
+            echo "Files without filename date: $(IFS=', '; echo "${no_filename_files[*]}")"
+        fi
+    else
+        echo "Your files are a mix - some lack metadata, some lack filename dates."
+        echo "Consider using \`DateStrategy=earliest\` to get the best result from whatever is available."
+        echo ""
+        echo "\`\`\`ini"
+        echo "[Options]"
+        echo "DateStrategy=earliest"
+        echo "\`\`\`"
+        if [[ ${#no_metadata_files[@]} -le 5 && ${#no_metadata_files[@]} -gt 0 ]]; then
+            echo ""
+            echo "Files without metadata: $(IFS=', '; echo "${no_metadata_files[*]}")"
+        fi
+        if [[ ${#no_filename_files[@]} -le 5 && ${#no_filename_files[@]} -gt 0 ]]; then
+            echo ""
+            echo "Files without filename date: $(IFS=', '; echo "${no_filename_files[*]}")"
+        fi
+    fi
+    echo ""
 } > "$REPORT_PATH"
 
 echo "Success! Property report generated at: $REPORT_PATH"
