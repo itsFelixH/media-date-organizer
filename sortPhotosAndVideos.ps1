@@ -24,6 +24,12 @@ $metadataPropertyMap = @{
 # Defaults
 $priority = @("metadata", "filename", "filesystem")
 $knownDateIds = @(12, 36879, 208, 209, 17, 3, 15, 4)
+$cleanupEmptyDirs = $true
+$fileAction = "move"
+$dateFormat = $format
+$includeExtensions = @()
+$excludeExtensions = @()
+$conflictStrategy = "rename"
 
 # Load config file if it exists
 if (Test-Path -Path $config -PathType Leaf) {
@@ -55,6 +61,35 @@ if (Test-Path -Path $config -PathType Leaf) {
                     $configDateIds += $metadataPropertyMap[$line]
                 } else {
                     Write-Warning "Unknown metadata property '$line' in config. Available: $($metadataPropertyMap.Keys -join ', ')"
+                }
+            }
+            "Options" {
+                if ($line -match '^(.+?)=(.+)$') {
+                    $key = $Matches[1].Trim()
+                    $val = $Matches[2].Trim()
+                    switch ($key) {
+                        "CleanupEmptyDirs" { $cleanupEmptyDirs = $val -eq "true" }
+                        "FileAction" {
+                            if ($val -in @("move", "copy")) { $fileAction = $val }
+                            else { Write-Warning "Invalid FileAction '$val'. Available: move, copy" }
+                        }
+                        "DateFormat" { $dateFormat = $val }
+                        "IncludeExtensions" {
+                            if ($val -ne "*" -and $val -ne "") {
+                                $includeExtensions = $val.Split(',') | ForEach-Object { $_.Trim().TrimStart('.').ToLower() }
+                            }
+                        }
+                        "ExcludeExtensions" {
+                            if ($val -ne "") {
+                                $excludeExtensions = $val.Split(',') | ForEach-Object { $_.Trim().TrimStart('.').ToLower() }
+                            }
+                        }
+                        "ConflictStrategy" {
+                            if ($val -in @("rename", "skip", "overwrite")) { $conflictStrategy = $val }
+                            else { Write-Warning "Invalid ConflictStrategy '$val'. Available: rename, skip, overwrite" }
+                        }
+                        default { Write-Warning "Unknown option '$key' in config." }
+                    }
                 }
             }
         }
@@ -142,7 +177,16 @@ function Get-File-Date {
 
 # --- Main Processing ---
 $files = Get-ChildItem -Path $source -Recurse -File | Where-Object { $_.FullName -notlike "$dest*" }
-$totalFiles = $files.Count
+
+# Apply extension filters
+if ($includeExtensions.Count -gt 0) {
+    $files = $files | Where-Object { $_.Extension.TrimStart('.').ToLower() -in $includeExtensions }
+}
+if ($excludeExtensions.Count -gt 0) {
+    $files = $files | Where-Object { $_.Extension.TrimStart('.').ToLower() -notin $excludeExtensions }
+}
+
+$totalFiles = @($files).Count
 
 if ($totalFiles -eq 0) {
     Write-Host "No files found to process in '$source'."
@@ -161,7 +205,7 @@ foreach ($fileInfo in $files) {
 
     try {
         $date = Get-File-Date -FileObject $fileInfo
-        $destinationSubFolder = Get-Date -Date $date -Format $format
+        $destinationSubFolder = Get-Date -Date $date -Format $dateFormat
         $destinationPath = Join-Path -Path $dest -ChildPath $destinationSubFolder
 
         # Create destination directory
@@ -175,11 +219,25 @@ foreach ($fileInfo in $files) {
 
         # Handle filename conflicts
         $finalDestinationFile = Join-Path -Path $destinationPath -ChildPath $fileInfo.Name
-        $newNameIndex = 1
-        while (Test-Path -LiteralPath $finalDestinationFile -PathType Leaf) {
-            $newName = "{0}_{1}{2}" -f $fileInfo.BaseName, $newNameIndex, $fileInfo.Extension
-            $finalDestinationFile = Join-Path -Path $destinationPath -ChildPath $newName
-            $newNameIndex++
+        if (Test-Path -LiteralPath $finalDestinationFile -PathType Leaf) {
+            switch ($conflictStrategy) {
+                "skip" {
+                    Write-Host "Skipping (conflict): $($fileInfo.Name) already exists at destination"
+                    $skippedCount++
+                    continue
+                }
+                "overwrite" {
+                    # Keep the same path, -Force will overwrite
+                }
+                "rename" {
+                    $newNameIndex = 1
+                    while (Test-Path -LiteralPath $finalDestinationFile -PathType Leaf) {
+                        $newName = "{0}_{1}{2}" -f $fileInfo.BaseName, $newNameIndex, $fileInfo.Extension
+                        $finalDestinationFile = Join-Path -Path $destinationPath -ChildPath $newName
+                        $newNameIndex++
+                    }
+                }
+            }
         }
 
         # Skip if source and destination are same
@@ -190,10 +248,14 @@ foreach ($fileInfo in $files) {
         }
 
         if ($DryRun) {
-            Write-Host "[DRY RUN] Would move '$($fileInfo.FullName)' to '$finalDestinationFile'"
+            Write-Host "[DRY RUN] Would $fileAction '$($fileInfo.FullName)' to '$finalDestinationFile'"
         } else {
-            Write-Host "Moving to $finalDestinationFile"
-            Move-Item -LiteralPath $fileInfo.FullName -Destination $finalDestinationFile -Force
+            Write-Host "$($fileAction.Substring(0,1).ToUpper() + $fileAction.Substring(1))ing to $finalDestinationFile"
+            if ($fileAction -eq "copy") {
+                Copy-Item -LiteralPath $fileInfo.FullName -Destination $finalDestinationFile -Force
+            } else {
+                Move-Item -LiteralPath $fileInfo.FullName -Destination $finalDestinationFile -Force
+            }
         }
         $movedCount++
     }
@@ -204,7 +266,7 @@ foreach ($fileInfo in $files) {
 }
 
 # --- Cleanup empty directories ---
-if (-not $DryRun) {
+if (-not $DryRun -and $cleanupEmptyDirs -and $fileAction -eq "move") {
     Get-ChildItem -Path $source -Recurse -Directory |
         Where-Object { $_.FullName -notlike "$dest*" } |
         Sort-Object { $_.FullName.Length } -Descending |
@@ -217,13 +279,14 @@ if (-not $DryRun) {
 }
 
 # --- Summary ---
+$actionLabel = if ($fileAction -eq "copy") { "Copied" } else { "Moved" }
 Write-Host ""
 Write-Host "--- Summary ---"
 Write-Host "Total files:  $totalFiles"
-Write-Host "Moved:        $movedCount"
+Write-Host "${actionLabel}:      $movedCount"
 Write-Host "Skipped:      $skippedCount"
 Write-Host "Errors:       $errorCount"
-if ($DryRun) { Write-Host "(Dry run - no files were actually moved)" }
+if ($DryRun) { Write-Host "(Dry run - no files were actually $($fileAction)d)" }
 
 # Cleanup COM object
 [System.Runtime.InteropServices.Marshal]::ReleaseComObject($shell) | Out-Null
