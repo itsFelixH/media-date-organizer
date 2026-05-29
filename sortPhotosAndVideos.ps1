@@ -27,7 +27,7 @@ $knownDateIds = @(12, 36879, 208, 209, 17, 3, 15, 4)
 
 # Load config file if it exists
 if (Test-Path -Path $config -PathType Leaf) {
-    Write-Host "Loading configuration from: $config"
+    Write-Verbose "Loading configuration from: $config"
     $currentSection = $null
     $configPriority = @()
     $configDateIds = @()
@@ -63,7 +63,7 @@ if (Test-Path -Path $config -PathType Leaf) {
     if ($configPriority.Count -gt 0) { $priority = $configPriority }
     if ($configDateIds.Count -gt 0) { $knownDateIds = $configDateIds }
 } else {
-    Write-Host "No config file found at '$config'. Using defaults."
+    Write-Verbose "No config file found at '$config'. Using defaults."
 }
 
 
@@ -150,6 +150,9 @@ if ($totalFiles -eq 0) {
 }
 
 $processedCount = 0
+$movedCount = 0
+$skippedCount = 0
+$errorCount = 0
 
 foreach ($fileInfo in $files) {
     $processedCount++
@@ -182,6 +185,7 @@ foreach ($fileInfo in $files) {
         # Skip if source and destination are same
         if ($fileInfo.FullName -eq $finalDestinationFile) {
             Write-Host "Skipping: Source and destination are identical"
+            $skippedCount++
             continue
         }
 
@@ -191,11 +195,35 @@ foreach ($fileInfo in $files) {
             Write-Host "Moving to $finalDestinationFile"
             Move-Item -LiteralPath $fileInfo.FullName -Destination $finalDestinationFile -Force
         }
+        $movedCount++
     }
     catch {
         Write-Error "Error processing '$($fileInfo.FullName)': $_"
+        $errorCount++
     }
 }
+
+# --- Cleanup empty directories ---
+if (-not $DryRun) {
+    Get-ChildItem -Path $source -Recurse -Directory |
+        Where-Object { $_.FullName -notlike "$dest*" } |
+        Sort-Object { $_.FullName.Length } -Descending |
+        ForEach-Object {
+            if ((Get-ChildItem -Path $_.FullName -Force).Count -eq 0) {
+                Write-Verbose "Removing empty directory: $($_.FullName)"
+                Remove-Item -Path $_.FullName -Force
+            }
+        }
+}
+
+# --- Summary ---
+Write-Host ""
+Write-Host "--- Summary ---"
+Write-Host "Total files:  $totalFiles"
+Write-Host "Moved:        $movedCount"
+Write-Host "Skipped:      $skippedCount"
+Write-Host "Errors:       $errorCount"
+if ($DryRun) { Write-Host "(Dry run - no files were actually moved)" }
 
 # Cleanup COM object
 [System.Runtime.InteropServices.Marshal]::ReleaseComObject($shell) | Out-Null
