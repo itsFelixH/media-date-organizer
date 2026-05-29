@@ -105,6 +105,12 @@ if (Test-Path -Path $config -PathType Leaf) {
 
 
 # --- Setup ---
+# Resolve paths to absolute
+$source = (Resolve-Path -Path $source).Path
+if (Test-Path -Path $dest) {
+    $dest = (Resolve-Path -Path $dest).Path
+}
+
 # Validate DateFormat
 try {
     $null = Get-Date -Format $dateFormat

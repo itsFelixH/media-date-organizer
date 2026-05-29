@@ -73,7 +73,8 @@ if ($files.Count -eq 0) {
 }
 
 $shell = New-Object -ComObject Shell.Application
-$folder = $shell.NameSpace($source)
+$absoluteSource = (Resolve-Path -Path $source).Path
+$folder = $shell.NameSpace($absoluteSource)
 
 $mdContent = New-Object System.Collections.Generic.List[string]
 $mdContent.Add("# Media Metadata Analysis Report")
