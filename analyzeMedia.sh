@@ -298,10 +298,10 @@ REPORT_PATH="$SCRIPT_DIR/property_report_${REPORT_TIMESTAMP}.md"
 
         if [[ "$DATE_STRATEGY" == "earliest" ]]; then
             # Pick the earliest date across all strategies
-            local earliest_date=""
+            earliest_date=""
             for strategy in "${PRIORITY[@]}"; do
                 if [[ -n "${strategy_results[$strategy]:-}" ]]; then
-                    local date_only="${strategy_results[$strategy]%% *}"
+                    date_only="${strategy_results[$strategy]%% *}"
                     # Extract just YYYY-MM-DD portion
                     date_only="${date_only:0:10}"
                     if [[ -z "$earliest_date" || "$date_only" < "$earliest_date" ]]; then
