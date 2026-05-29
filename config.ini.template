@@ -43,3 +43,7 @@ ExcludeExtensions=
 
 # What to do when a file with the same name exists at destination (rename/skip/overwrite)
 ConflictStrategy=rename
+
+# Path to a log file for auditing (empty to disable)
+# Each entry records: timestamp, source path, destination path, strategy used
+LogFile=
