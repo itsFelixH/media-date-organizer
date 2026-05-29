@@ -1,4 +1,8 @@
-# media-date-organizer
+# 📂 Media Date Organizer
+
+![Windows](https://img.shields.io/badge/Windows-PowerShell_5.1+-blue?logo=powershell&logoColor=white)
+![macOS](https://img.shields.io/badge/macOS-Bash_4+-black?logo=apple&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-Bash_4+-orange?logo=linux&logoColor=white)
 
 Automatically sort your photos and videos into date-based folders. Works on Windows, macOS, and Linux.
 
