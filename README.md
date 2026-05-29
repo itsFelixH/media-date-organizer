@@ -85,7 +85,8 @@ Copy-Item config.ini.template config.ini  # Windows
 
 Then edit `config.ini`. It's heavily commented with examples — open it and you'll see what's available.
 
-### At a Glance
+<details>
+<summary><strong>All settings at a glance</strong></summary>
 
 | Setting | What it does | Default |
 |---------|-------------|---------|
@@ -100,7 +101,10 @@ Then edit `config.ini`. It's heavily commented with examples — open it and you
 | **CleanupEmptyDirs** | Remove empty folders after moving | `true` |
 | **LogFile** | TSV audit log path | *(disabled)* |
 
-### Example: Phone Photos Setup
+</details>
+
+<details>
+<summary><strong>Example: Phone Photos Setup</strong></summary>
 
 ```ini
 [Priority]
@@ -113,13 +117,18 @@ IncludeExtensions=jpg,jpeg,heic,mp4,mov
 ExcludeExtensions=thm,aae
 ```
 
-### Example: Backup Mode (Keep Originals)
+</details>
+
+<details>
+<summary><strong>Example: Backup Mode (Keep Originals)</strong></summary>
 
 ```ini
 [Options]
 FileAction=copy
 ConflictStrategy=skip
 ```
+
+</details>
 
 ---
 
@@ -137,14 +146,23 @@ Not sure how your files will be sorted? Analyze them first:
 ./analyzeMedia.sh -source ~/Pictures/SomeFolder
 ```
 
+<details>
+<summary><strong>What the report shows</strong></summary>
+
 Generates a `property_report_*.md` showing:
-- Which strategy wins for each file
+- The active configuration (priority order, metadata properties)
+- Which strategy wins for each file (marked with ✓)
 - What every strategy *would* return (helps you tune priority order)
-- All available date metadata
+- All available date-related metadata fields
+
+</details>
 
 ---
 
 ## Good to Know
+
+<details>
+<summary><strong>Tips and details</strong></summary>
 
 - **Always test with `-DryRun` first** — see exactly what will happen before committing
 - **Duplicates** are handled by `ConflictStrategy` (default: auto-rename with `_1`, `_2`)
@@ -154,9 +172,14 @@ Generates a `property_report_*.md` showing:
 - **Network drives** work if mapped; UNC paths may not expose metadata (Windows)
 - **RAW files** (CR3, NEF) — Windows needs 10+ for metadata; exiftool handles them everywhere
 
+</details>
+
 ---
 
 ## Cross-Platform Reference
+
+<details>
+<summary><strong>Platform comparison</strong></summary>
 
 | | Windows | macOS/Linux |
 |---|---------|-------------|
@@ -166,6 +189,8 @@ Generates a `property_report_*.md` showing:
 | Config file | Shared `config.ini` | Shared `config.ini` |
 | Date format option | `DateFormat` (.NET) | `DateFormatUnix` (strftime) |
 | Requirements | PowerShell 5.1+ | Bash 4+, exiftool |
+
+</details>
 
 ---
 
