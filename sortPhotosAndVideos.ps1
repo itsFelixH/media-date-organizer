@@ -95,6 +95,7 @@ if (Test-Path -Path $config -PathType Leaf) {
                             else { Write-Warning "Invalid DateStrategy '$val'. Available: priority, earliest" }
                         }
                         "LogFile" { $logFile = $val }
+                        "DateFormatUnix" {} # Linux/macOS only, ignore silently
                         default { Write-Warning "Unknown option '$key' in config." }
                     }
                 }
