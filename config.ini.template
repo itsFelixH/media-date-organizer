@@ -69,13 +69,21 @@ DateCreated
 # Use "copy" to keep originals intact (e.g. for backups)
 FileAction=move
 
-# Folder structure date format (uses .NET date format strings)
+# Folder structure date format for Windows (uses .NET date format strings)
 # Examples:
 #   yyyy\\yyyy-MM\\yyyy-MM-dd       -> 2024\2024-06\2024-06-15  (default)
 #   yyyy\\MM-MMM                    -> 2024\06-Jun
 #   yyyy\\yyyy-MM                   -> 2024\2024-06
 #   yyyy-MM-dd                      -> 2024-06-15 (flat, no nesting)
 DateFormat=yyyy\\yyyy-MM\\yyyy-MM-dd
+
+# Folder structure date format for macOS/Linux (uses strftime format)
+# Examples:
+#   %Y/%Y-%m/%Y-%m-%d              -> 2024/2024-06/2024-06-15  (default)
+#   %Y/%m-%b                       -> 2024/06-Jun
+#   %Y/%Y-%m                       -> 2024/2024-06
+#   %Y-%m-%d                       -> 2024-06-15 (flat, no nesting)
+DateFormatUnix=%Y/%Y-%m/%Y-%m-%d
 
 # Only process files with these extensions (comma-separated, or * for all)
 # Examples:
