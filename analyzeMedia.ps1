@@ -83,6 +83,12 @@ $mdContent = New-Object System.Collections.Generic.List[string]
 $mdContent.Add("# Media Metadata Analysis Report")
 $mdContent.Add("Generated on: $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))")
 $mdContent.Add("")
+$mdContent.Add("## Active Configuration")
+$mdContent.Add("- **Priority order:** $($priority -join ' → ')")
+$mdContent.Add("- **Metadata properties:** $($knownDateIds -join ', ')")
+$mdContent.Add("")
+$mdContent.Add("---")
+$mdContent.Add("")
 $mdContent.Add("This report lists the **Extracted Filename Date** and all date-related Windows Shell properties for files in the ``/examples`` folder.")
 $mdContent.Add("")
 
@@ -91,48 +97,55 @@ foreach ($fileInfo in $files) {
     $item = $folder.ParseName($fileInfo.Name)
 
     # --- Decision Waterfall (uses configured priority) ---
+    $strategyResults = @{}
     $finalDateSource = "None Found"
     $finalDateValue = "N/A"
 
+    # Evaluate ALL strategies to show what each would return
+    # Filename
+    if ($fileInfo.BaseName -match '(?<!\d)(20\d{2}|19\d{2})[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12]\d|3[01])') {
+        $strategyResults["filename"] = "$($Matches[1])-$($Matches[2])-$($Matches[3])"
+    }
+    # Metadata
+    foreach ($id in $knownDateIds) {
+        $rawVal = $folder.GetDetailsOf($item, $id)
+        if (-not [string]::IsNullOrWhiteSpace($rawVal)) {
+            $cleanVal = $rawVal -replace "[\u200e\u200f\u202a-\u202e]", ""
+            $tempDate = [System.DateTime]::MinValue
+            if ([DateTime]::TryParse($cleanVal, [ref]$tempDate)) {
+                $strategyResults["metadata"] = "$cleanVal (ID $id - $($folder.GetDetailsOf($null, $id)))"
+                break
+            }
+        }
+    }
+    # Filesystem
+    $strategyResults["filesystem"] = $fileInfo.CreationTime.ToString()
+
+    # Determine winner based on priority order
     foreach ($strategy in $priority) {
-        if ($finalDateSource -ne "None Found") { break }
-        switch ($strategy) {
-            "filename" {
-                if ($fileInfo.BaseName -match '(?<!\d)(20\d{2}|19\d{2})[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12]\d|3[01])') {
-                    $finalDateSource = "Filename Regex"
-                    $finalDateValue = "$($Matches[1])-$($Matches[2])-$($Matches[3])"
-                }
-            }
-            "metadata" {
-                foreach ($id in $knownDateIds) {
-                    $rawVal = $folder.GetDetailsOf($item, $id)
-                    if (-not [string]::IsNullOrWhiteSpace($rawVal)) {
-                        $cleanVal = $rawVal -replace "[\u200e\u200f\u202a-\u202e]", ""
-                        $tempDate = [System.DateTime]::MinValue
-                        if ([DateTime]::TryParse($cleanVal, [ref]$tempDate)) {
-                            $finalDateSource = "Metadata ID $id ($($folder.GetDetailsOf($null, $id)))"
-                            $finalDateValue = $cleanVal
-                            break
-                        }
-                    }
-                }
-            }
-            "filesystem" {
-                $finalDateSource = "File System (CreationTime)"
-                $finalDateValue = $fileInfo.CreationTime.ToString()
-            }
+        if ($strategyResults.ContainsKey($strategy)) {
+            $finalDateSource = $strategy
+            $finalDateValue = $strategyResults[$strategy]
+            break
         }
     }
 
     # Ultimate fallback
     if ($finalDateSource -eq "None Found") {
-        $finalDateSource = "File System (CreationTime)"
+        $finalDateSource = "filesystem (fallback)"
         $finalDateValue = $fileInfo.CreationTime.ToString()
     }
 
     $mdContent.Add("## File: $($fileInfo.Name)")
-    $mdContent.Add("- **Script Decision:** $finalDateSource")
-    $mdContent.Add("- **Resulting Date:** ``$finalDateValue``")
+    $mdContent.Add("- **Winner:** $finalDateSource → ``$finalDateValue``")
+    $mdContent.Add("")
+    $mdContent.Add("| Strategy | Result |")
+    $mdContent.Add("|---|---|")
+    foreach ($strategy in $priority) {
+        $val = if ($strategyResults.ContainsKey($strategy)) { $strategyResults[$strategy] } else { "—" }
+        $marker = if ($strategy -eq $finalDateSource) { " ✓" } else { "" }
+        $mdContent.Add("| $strategy$marker | $val |")
+    }
     $mdContent.Add("")
     $mdContent.Add("| ID | Property Name | Value |")
     $mdContent.Add("|---|---|---|")
