@@ -1,3 +1,4 @@
+[CmdletBinding()]
 Param(
     [Parameter(Mandatory = $true)]
     [ValidateScript({ Test-Path -Path $_ -PathType Container })]
@@ -104,6 +105,14 @@ if (Test-Path -Path $config -PathType Leaf) {
 
 
 # --- Setup ---
+# Validate DateFormat
+try {
+    $null = Get-Date -Format $dateFormat
+} catch {
+    Write-Error "Invalid DateFormat '$dateFormat' in config. Please use a valid .NET date format string."
+    return
+}
+
 $shell = New-Object -ComObject Shell.Application
 $namespaceCache = @{}
 
@@ -245,25 +254,21 @@ foreach ($fileInfo in $files) {
         # Handle filename conflicts
         $finalDestinationFile = Join-Path -Path $destinationPath -ChildPath $fileInfo.Name
         if (Test-Path -LiteralPath $finalDestinationFile -PathType Leaf) {
-            switch ($conflictStrategy) {
-                "skip" {
-                    Write-Host "Skipping (conflict): $($fileInfo.Name) already exists at destination"
-                    Write-LogEntry -Action "SKIP" -Source $fileInfo.FullName -Destination $finalDestinationFile -Strategy $dateStrategy
-                    $skippedCount++
-                    continue
-                }
-                "overwrite" {
-                    # Keep the same path, -Force will overwrite
-                }
-                "rename" {
-                    $newNameIndex = 1
-                    while (Test-Path -LiteralPath $finalDestinationFile -PathType Leaf) {
-                        $newName = "{0}_{1}{2}" -f $fileInfo.BaseName, $newNameIndex, $fileInfo.Extension
-                        $finalDestinationFile = Join-Path -Path $destinationPath -ChildPath $newName
-                        $newNameIndex++
-                    }
+            if ($conflictStrategy -eq "skip") {
+                Write-Host "Skipping (conflict): $($fileInfo.Name) already exists at destination"
+                Write-LogEntry -Action "SKIP" -Source $fileInfo.FullName -Destination $finalDestinationFile -Strategy $dateStrategy
+                $skippedCount++
+                continue
+            }
+            elseif ($conflictStrategy -eq "rename") {
+                $newNameIndex = 1
+                while (Test-Path -LiteralPath $finalDestinationFile -PathType Leaf) {
+                    $newName = "{0}_{1}{2}" -f $fileInfo.BaseName, $newNameIndex, $fileInfo.Extension
+                    $finalDestinationFile = Join-Path -Path $destinationPath -ChildPath $newName
+                    $newNameIndex++
                 }
             }
+            # "overwrite" — keep the same path, -Force will overwrite
         }
 
         # Skip if source and destination are same
