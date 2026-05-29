@@ -1,0 +1,27 @@
+# Markdownlint configuration
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+# Line length - disabled (tables and code blocks break this)
+MD013: false
+
+# Inline HTML - allow details/summary blocks
+MD033:
+  allowed_elements:
+    - details
+    - summary
+    - strong
+    - br
+
+# Multiple headings with same content
+MD024:
+  siblings_only: true
+
+# Trailing punctuation in headings - allow colons
+MD026:
+  punctuation: ".,;!。，；！"
+
+# No bare URLs
+MD034: true
+
+# First line should be a top-level heading
+MD041: true
