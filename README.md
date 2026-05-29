@@ -175,8 +175,26 @@ Custom format via config: `DateFormat=yyyy\\MM-MMM` → `2024\04-Apr`
 
 ## Requirements
 
-- Windows PowerShell 5.1+ or PowerShell 7+
-- Windows (uses COM Shell.Application for metadata)
+- **Windows:** PowerShell 5.1+ (uses COM Shell.Application for metadata)
+- **macOS/Linux:** Bash 4+, `exiftool` (install via `brew install exiftool` or `apt install libimage-exiftool-perl`)
+
+## Cross-Platform
+
+| | Windows | macOS/Linux |
+|---|---------|-------------|
+| Sort script | `sortPhotosAndVideos.ps1` | `sortPhotosAndVideos.sh` |
+| Analyze script | `analyzeMedia.ps1` | `analyzeMedia.sh` |
+| Metadata engine | Windows Shell COM | exiftool |
+| Config file | Shared `config.ini` | Shared `config.ini` |
+| Date format option | `DateFormat` (.NET) | `DateFormatUnix` (strftime) |
+
+### macOS/Linux Quick Start
+
+```bash
+./sortPhotosAndVideos.sh -source ~/Pictures
+./sortPhotosAndVideos.sh -source ~/Pictures -DryRun
+./analyzeMedia.sh -source ~/Pictures/SomeFolder
+```
 
 ## Contributing
 
