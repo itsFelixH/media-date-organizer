@@ -1,22 +1,52 @@
 # media-date-organizer
 
-Organize your photos and videos into date-based folders automatically. Works with EXIF metadata, filename dates, and file system dates.
+Automatically sort your photos and videos into date-based folders. Works on Windows, macOS, and Linux.
+
+```
+Before:                          After:
+📁 Unsorted/                     📁 Sorted/
+├── IMG_20240615_143022.jpg      ├── 2024/
+├── DSC02345.jpg                 │   ├── 2024-06/
+├── VID_20240101.mp4             │   │   └── 2024-06-15/
+├── random_photo.png             │   │       ├── IMG_20240615_143022.jpg
+└── ...                          │   │       └── DSC02345.jpg
+                                 │   └── 2024-01/
+                                 │       └── 2024-01-01/
+                                 │           └── VID_20240101.mp4
+                                 └── ...
+```
+
+---
 
 ## Quick Start
 
+### Windows (PowerShell)
+
 ```powershell
+# Preview what would happen (recommended first run)
+.\sortPhotosAndVideos.ps1 -source "C:\Users\You\Pictures" -DryRun
+
+# Do it for real
 .\sortPhotosAndVideos.ps1 -source "C:\Users\You\Pictures"
 ```
 
-That's it. Your files get sorted into `Pictures\Sorted\2024\2024-06\2024-06-15\` based on when they were taken.
+### macOS / Linux (Bash)
 
-### Preview first (recommended)
+```bash
+# Install exiftool first (one-time)
+brew install exiftool          # macOS
+sudo apt install libimage-exiftool-perl  # Ubuntu/Debian
 
-```powershell
-.\sortPhotosAndVideos.ps1 -source "C:\Users\You\Pictures" -DryRun
+# Preview what would happen
+./sortPhotosAndVideos.sh -source ~/Pictures -DryRun
+
+# Do it for real
+./sortPhotosAndVideos.sh -source ~/Pictures
 ```
 
-Shows what would happen without moving anything.
+That's it. Files are sorted into `<source>/Sorted/` by date.
+
+---
 
 ## How It Decides the Date
 
@@ -28,157 +58,105 @@ The script tries multiple strategies in order and uses the first date it finds:
 | 2 | **Filename** | Patterns like `IMG_20231025`, `2023-10-25`, `2023_10_25` |
 | 3 | **Filesystem** | File creation date (last resort) |
 
-This order works well for most people — metadata is the most reliable source since it survives renames.
+This order is configurable. See [Configuration](#configuration-optional) below.
+
+---
 
 ## Parameters
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `-source` | Folder containing your media | *Required* |
-| `-dest` | Where sorted files go | `<source>\Sorted` |
+| `-dest` | Where sorted files go | `<source>/Sorted` |
 | `-config` | Path to config file | `config.ini` next to script |
 | `-DryRun` | Preview without moving files | off |
 
+---
+
 ## Configuration (Optional)
 
-The script works out of the box with no config file. If you want to customize behavior:
+The scripts work out of the box with no config file. To customize:
 
-1. Copy the template:
-   ```powershell
-   Copy-Item config.ini.template config.ini
-   ```
+```bash
+# Copy the template
+cp config.ini.template config.ini   # macOS/Linux
+Copy-Item config.ini.template config.ini  # Windows
+```
 
-2. Edit `config.ini` to your needs.
+Then edit `config.ini`. It's heavily commented with examples — open it and you'll see what's available.
 
-### Priority
+### At a Glance
 
-Controls the order in which date-extraction strategies are tried:
+| Setting | What it does | Default |
+|---------|-------------|---------|
+| **[Priority]** | Order of date-extraction strategies | metadata → filename → filesystem |
+| **[MetadataProperties]** | Which metadata fields to check | All (DateTaken first) |
+| **FileAction** | Move or copy files | `move` |
+| **DateFormat** | Folder structure (Windows, .NET format) | `yyyy\yyyy-MM\yyyy-MM-dd` |
+| **DateFormatUnix** | Folder structure (macOS/Linux, strftime) | `%Y/%Y-%m/%Y-%m-%d` |
+| **IncludeExtensions** | Only process these file types | `*` (all) |
+| **ExcludeExtensions** | Skip these file types | *(none)* |
+| **ConflictStrategy** | Name collision handling | `rename` (_1, _2, ...) |
+| **CleanupEmptyDirs** | Remove empty folders after moving | `true` |
+| **LogFile** | TSV audit log path | *(disabled)* |
+
+### Example: Phone Photos Setup
 
 ```ini
 [Priority]
-metadata
-filename
-filesystem
-```
-
-Swap lines to change priority. For example, to trust filenames over metadata:
-
-```ini
-[Priority]
 filename
 metadata
 filesystem
+
+[Options]
+IncludeExtensions=jpg,jpeg,heic,mp4,mov
+ExcludeExtensions=thm,aae
 ```
 
-### Metadata Properties
-
-Controls which metadata fields are checked and in what order:
-
-```ini
-[MetadataProperties]
-DateTaken
-DateTimeOriginal
-MediaCreated
-MediaCreatedAlt
-RecordedDate
-ItemDate
-DateModified
-DateCreated
-```
-
-| Name | What it is |
-|------|-----------|
-| `DateTaken` | EXIF Date Taken (photos) |
-| `DateTimeOriginal` | EXIF Date/Time Original |
-| `MediaCreated` | Media encoded date (videos) |
-| `MediaCreatedAlt` | Same as above, alternate locale ID |
-| `RecordedDate` | Recorded date (audio/video) |
-| `ItemDate` | General item date |
-| `DateModified` | File modified date |
-| `DateCreated` | File system creation date |
-
-### Options
+### Example: Backup Mode (Keep Originals)
 
 ```ini
 [Options]
-# Move or copy files (move/copy)
-FileAction=move
-
-# Folder structure date format (.NET format strings)
-DateFormat=yyyy\\yyyy-MM\\yyyy-MM-dd
-
-# Only process these extensions (comma-separated, or * for all)
-IncludeExtensions=*
-
-# Skip these extensions (comma-separated, or empty for none)
-ExcludeExtensions=
-
-# What to do on name collision (rename/skip/overwrite)
-ConflictStrategy=rename
-
-# Remove empty directories after moving (true/false)
-CleanupEmptyDirs=true
-
-# Path to a log file for auditing (empty to disable)
-LogFile=
+FileAction=copy
+ConflictStrategy=skip
 ```
 
-| Option | Values | Default | Notes |
-|--------|--------|---------|-------|
-| `FileAction` | `move`, `copy` | `move` | Use `copy` to keep originals intact |
-| `DateFormat` | .NET date format | `yyyy\\yyyy-MM\\yyyy-MM-dd` | e.g. `yyyy\\MM-MMM` → `2024\04-Apr` |
-| `IncludeExtensions` | `*` or comma-separated | `*` | e.g. `jpg,png,mp4,mov` |
-| `ExcludeExtensions` | empty or comma-separated | *(empty)* | e.g. `txt,db,ini` |
-| `ConflictStrategy` | `rename`, `skip`, `overwrite` | `rename` | `rename` appends `_1`, `_2`, etc. |
-| `CleanupEmptyDirs` | `true`, `false` | `true` | Only applies when `FileAction=move` |
-| `LogFile` | file path or empty | *(empty)* | TSV log with timestamp, action, source, destination, strategy. Also logs during `-DryRun` (as `DRYRUN`). |
+---
 
 ## Diagnostic Tool
 
-Not sure how your files will be sorted? Use `analyzeMedia.ps1` to inspect metadata:
+Not sure how your files will be sorted? Analyze them first:
 
 ```powershell
+# Windows
 .\analyzeMedia.ps1 -source "C:\Users\You\Pictures\SomeFolder"
 ```
 
-Or just run it against the default `examples/` folder:
-
-```powershell
-.\analyzeMedia.ps1
+```bash
+# macOS/Linux
+./analyzeMedia.sh -source ~/Pictures/SomeFolder
 ```
 
-The generated `property_report_*.md` shows:
-- The active configuration (priority order, metadata properties)
-- Which strategy would win for each file
-- What every strategy would return (so you can see the effect of reordering)
-- All available date-related metadata fields
+Generates a `property_report_*.md` showing:
+- Which strategy wins for each file
+- What every strategy *would* return (helps you tune priority order)
+- All available date metadata
 
-## Folder Structure Examples
-
-| File | Sorted to |
-|------|-----------|
-| `DSC02345.jpg` (taken 2023-06-15) | `Sorted\2023\2023-06\2023-06-15\DSC02345.jpg` |
-| `VID_20240101_143022.mp4` | `Sorted\2024\2024-01\2024-01-01\VID_20240101_143022.mp4` |
-| `IMG_0001.jpg` (no date anywhere) | `Sorted\2019\2019-03\2019-03-22\IMG_0001.jpg` (uses creation date) |
-
-Custom format via config: `DateFormat=yyyy\\MM-MMM` → `2024\04-Apr`
+---
 
 ## Good to Know
 
-- **Duplicates** are handled by `ConflictStrategy` (default: auto-rename with `_1`, `_2`, etc.)
-- **Windows only** — uses Windows Shell for metadata extraction
-- **Network drives** work if mapped; UNC paths may not expose metadata
-- **RAW files** (CR3, NEF) need Windows 10+ for metadata support
-- **Always test with `-DryRun` first** or use copies
-- **Summary** is printed at the end showing moved/copied, skipped, and error counts
+- **Always test with `-DryRun` first** — see exactly what will happen before committing
+- **Duplicates** are handled by `ConflictStrategy` (default: auto-rename with `_1`, `_2`)
 - **Empty directories** are cleaned up automatically after moving (configurable)
+- **Summary** is printed at the end: moved/copied, skipped, errors
+- **Log file** records every action as TSV for auditing (also logs during dry runs)
+- **Network drives** work if mapped; UNC paths may not expose metadata (Windows)
+- **RAW files** (CR3, NEF) — Windows needs 10+ for metadata; exiftool handles them everywhere
 
-## Requirements
+---
 
-- **Windows:** PowerShell 5.1+ (uses COM Shell.Application for metadata)
-- **macOS/Linux:** Bash 4+, `exiftool` (install via `brew install exiftool` or `apt install libimage-exiftool-perl`)
-
-## Cross-Platform
+## Cross-Platform Reference
 
 | | Windows | macOS/Linux |
 |---|---------|-------------|
@@ -187,14 +165,9 @@ Custom format via config: `DateFormat=yyyy\\MM-MMM` → `2024\04-Apr`
 | Metadata engine | Windows Shell COM | exiftool |
 | Config file | Shared `config.ini` | Shared `config.ini` |
 | Date format option | `DateFormat` (.NET) | `DateFormatUnix` (strftime) |
+| Requirements | PowerShell 5.1+ | Bash 4+, exiftool |
 
-### macOS/Linux Quick Start
-
-```bash
-./sortPhotosAndVideos.sh -source ~/Pictures
-./sortPhotosAndVideos.sh -source ~/Pictures -DryRun
-./analyzeMedia.sh -source ~/Pictures/SomeFolder
-```
+---
 
 ## Contributing
 
