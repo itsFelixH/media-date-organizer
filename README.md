@@ -118,6 +118,9 @@ ConflictStrategy=rename
 
 # Remove empty directories after moving (true/false)
 CleanupEmptyDirs=true
+
+# Path to a log file for auditing (empty to disable)
+LogFile=
 ```
 
 | Option | Values | Default | Notes |
@@ -128,6 +131,7 @@ CleanupEmptyDirs=true
 | `ExcludeExtensions` | empty or comma-separated | *(empty)* | e.g. `txt,db,ini` |
 | `ConflictStrategy` | `rename`, `skip`, `overwrite` | `rename` | `rename` appends `_1`, `_2`, etc. |
 | `CleanupEmptyDirs` | `true`, `false` | `true` | Only applies when `FileAction=move` |
+| `LogFile` | file path or empty | *(empty)* | TSV log with timestamp, action, source, destination, strategy |
 
 ## Diagnostic Tool
 
