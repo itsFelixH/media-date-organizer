@@ -1,19 +1,52 @@
 # Configuration for sortPhotosAndVideos.ps1
 # Copy this file to config.ini and adjust to your needs.
 #
+# Lines starting with # are comments.
+# Remove or reorder lines to change behavior.
+
+# ============================================================================
 # [Priority]
 # Order in which date-extraction strategies are tried. First match wins.
 # Available strategies: filename, metadata, filesystem
 #
-# [MetadataProperties]
-# Order in which metadata fields are checked during the "metadata" strategy.
-# Available: DateTaken, DateTimeOriginal, MediaCreated, MediaCreatedAlt,
-#            RecordedDate, ItemDate, DateModified, DateCreated
+# Examples:
+#   Trust metadata first (default, best for most users):
+#     metadata / filename / filesystem
+#
+#   Trust filenames first (good if your camera names files with dates):
+#     filename / metadata / filesystem
+#
+#   Skip filename entirely (only use embedded metadata or filesystem):
+#     metadata / filesystem
+# ============================================================================
 
 [Priority]
 metadata
 filename
 filesystem
+
+# ============================================================================
+# [MetadataProperties]
+# Order in which metadata fields are checked during the "metadata" strategy.
+# First valid date found wins. Remove lines you don't want checked.
+#
+# Available:
+#   DateTaken         - EXIF Date Taken (most cameras)
+#   DateTimeOriginal  - EXIF Date/Time Original (most reliable for photos)
+#   MediaCreated      - Media encoded date (videos from phones/cameras)
+#   MediaCreatedAlt   - Same as above, alternate ID (some Windows locales)
+#   RecordedDate      - Recorded date (audio/video recordings)
+#   ItemDate          - General item date (good fallback)
+#   DateModified      - File modified date (changes on copy/edit!)
+#   DateCreated       - File system creation date (least reliable)
+#
+# Examples:
+#   Photos only (skip video-related fields):
+#     DateTaken / DateTimeOriginal / ItemDate / DateCreated
+#
+#   Videos only:
+#     MediaCreated / MediaCreatedAlt / RecordedDate / ItemDate
+# ============================================================================
 
 [MetadataProperties]
 DateTaken
@@ -25,25 +58,54 @@ ItemDate
 DateModified
 DateCreated
 
+# ============================================================================
+# [Options]
+# Key=value pairs for general behavior settings.
+# ============================================================================
+
 [Options]
-# Remove empty directories after moving files (true/false)
-CleanupEmptyDirs=true
 
 # Move or copy files to destination (move/copy)
+# Use "copy" to keep originals intact (e.g. for backups)
 FileAction=move
 
 # Folder structure date format (uses .NET date format strings)
+# Examples:
+#   yyyy\\yyyy-MM\\yyyy-MM-dd       -> 2024\2024-06\2024-06-15  (default)
+#   yyyy\\MM-MMM                    -> 2024\06-Jun
+#   yyyy\\yyyy-MM                   -> 2024\2024-06
+#   yyyy-MM-dd                      -> 2024-06-15 (flat, no nesting)
 DateFormat=yyyy\\yyyy-MM\\yyyy-MM-dd
 
 # Only process files with these extensions (comma-separated, or * for all)
+# Examples:
+#   *                               -> all files (default)
+#   jpg,jpeg,png,heic               -> photos only
+#   mp4,mov,avi,mkv                 -> videos only
+#   jpg,jpeg,png,mp4,mov            -> photos and videos
 IncludeExtensions=*
 
 # Skip files with these extensions (comma-separated, or empty for none)
+# Examples:
+#   txt,db,ini,json                 -> skip config/text files
+#   thm,lrv                         -> skip GoPro thumbnail/low-res files
 ExcludeExtensions=
 
-# What to do when a file with the same name exists at destination (rename/skip/overwrite)
+# What to do when a file with the same name exists at destination
+# Options: rename, skip, overwrite
+#   rename    -> appends _1, _2, etc. (safe, no data loss)
+#   skip      -> leaves the file in place, logs as SKIP
+#   overwrite -> replaces the existing file (danger!)
 ConflictStrategy=rename
 
+# Remove empty directories after moving files (true/false)
+# Only applies when FileAction=move
+CleanupEmptyDirs=true
+
 # Path to a log file for auditing (empty to disable)
-# Each entry records: timestamp, source path, destination path, strategy used
+# Logs every action as TSV: timestamp, action, source, destination, strategy
+# Also logs during -DryRun (as DRYRUN action)
+# Examples:
+#   LogFile=sort_log.txt            -> relative to working directory
+#   LogFile=C:\Logs\media_sort.log  -> absolute path
 LogFile=
