@@ -1,0 +1,13 @@
+# Auto detect text files and normalize line endings
+* text=auto
+
+# Windows scripts: CRLF
+*.ps1 text eol=crlf
+
+# Shell scripts: LF
+*.sh text eol=lf
+
+# Config and docs: auto
+*.md text
+*.ini text
+*.template text
