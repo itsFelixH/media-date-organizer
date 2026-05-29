@@ -171,9 +171,6 @@ Generates a `property_report_*.md` showing:
 
 ## Good to Know
 
-<details>
-<summary><strong>Tips and details</strong></summary>
-
 - **Always test with `-DryRun` first** — see exactly what will happen before committing
 - **Duplicates** are handled by `ConflictStrategy` (default: auto-rename with `_1`, `_2`)
 - **Empty directories** are cleaned up automatically after moving (configurable)
@@ -182,32 +179,8 @@ Generates a `property_report_*.md` showing:
 - **Network drives** work if mapped; UNC paths may not expose metadata (Windows)
 - **RAW files** (CR3, NEF) — Windows needs 10+ for metadata; exiftool handles them everywhere
 
-</details>
-
----
-
-## Cross-Platform Reference
-
-<details>
-<summary><strong>Platform comparison</strong></summary>
-
-| | Windows | macOS/Linux |
-|---|---------|-------------|
-| Sort script | `sortPhotosAndVideos.ps1` | `sortPhotosAndVideos.sh` |
-| Analyze script | `analyzeMedia.ps1` | `analyzeMedia.sh` |
-| Metadata engine | Windows Shell COM | exiftool |
-| Config file | Shared `config.ini` | Shared `config.ini` |
-| Date format option | `DateFormat` (.NET) | `DateFormatUnix` (strftime) |
-| Requirements | PowerShell 5.1+ | Bash 4+, exiftool |
-
-</details>
-
 ---
 
 ## Contributing
 
 PRs, issues, and ideas welcome.
-
-## License
-
-[MIT](LICENSE)
