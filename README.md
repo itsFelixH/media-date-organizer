@@ -197,3 +197,7 @@ Generates a `property_report_*.md` showing:
 ## Contributing
 
 PRs, issues, and ideas welcome.
+
+## License
+
+[MIT](LICENSE)
