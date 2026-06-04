@@ -169,9 +169,12 @@ Generates a `property_report_*.md` showing:
 
 ---
 
-## Helper Scripts
+## Helper Scripts (Optional)
 
-The `helpers/` folder contains companion scripts for common media preparation tasks.
+The `helpers/` folder contains optional companion scripts for common media preparation tasks.
+These are independent utilities — use whichever ones you need, in any order.
+None of them are required for the main sorting to work.
+
 All helpers support `-SourcePath` (defaults to current directory) and `-DryRun`.
 
 | Script | Purpose |
@@ -192,15 +195,17 @@ $folder = "D:\Photos\Unsorted"
 # 2. Fix broken/mangled extensions
 .\helpers\Repair-FileExtension.ps1 -SourcePath $folder -DryRun
 
-# 3. Convert legacy formats
+# 3. Convert legacy formats (optional — only if you have .heic, .webp, .avi, etc.)
 .\helpers\Convert-MediaFormat.ps1 -SourcePath $folder -DryRun
 
-# 4. Clean up originals (after verifying conversions)
+# 4. Clean up originals after conversion (optional)
 .\helpers\Remove-ConvertedOriginals.ps1 -SourcePath $folder -DryRun
 
 # 5. Sort into date folders
 .\Sort-Media.ps1 -Source $folder -DryRun
 ```
+
+Each step is independent. Skip any you don't need.
 
 ---
 
