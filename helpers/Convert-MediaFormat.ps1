@@ -51,6 +51,13 @@ if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
     return
 }
 
+$hasFFprobe = [bool](Get-Command ffprobe -ErrorAction SilentlyContinue)
+if (-not $hasFFprobe) {
+    Write-Warning "ffprobe not found. Video codec detection disabled — all videos will be re-encoded."
+    Write-Warning "Install ffprobe (usually bundled with ffmpeg) to enable smart remuxing."
+    Write-Warning ""
+}
+
 # Check HEIC support if needed
 $heicExtensions = @(".heic", ".heif")
 $needsHeic = ($Extensions | Where-Object { $_ -in $heicExtensions }).Count -gt 0
@@ -106,21 +113,25 @@ foreach ($file in $filesToConvert) {
 
     # Determine FFmpeg arguments
     if ($isPhoto) {
-        $ffmpegArgs = @("-v", "error", "-y", "-n", "-i", $file.FullName, "-map_metadata", "0", "-q:v", "2", $outputFile)
+        $ffmpegArgs = @("-v", "error", "-n", "-i", $file.FullName, "-map_metadata", "0", "-q:v", "2", $outputFile)
         $mode = "convert"
     } else {
         # Probe video codec to decide: remux or re-encode
         $mode = "convert"
-        $probeOutput = & ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 $file.FullName 2>&1
-        $videoCodec = ($probeOutput | Out-String).Trim().ToLower()
+        $videoCodec = ""
+
+        if ($hasFFprobe) {
+            $probeOutput = & ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 $file.FullName 2>&1
+            $videoCodec = ($probeOutput | Out-String).Trim().ToLower()
+        }
 
         if ($videoCodec -in $remuxableCodecs) {
-            # Codec is already compatible with MP4 container — just remux (fast, lossless)
-            $ffmpegArgs = @("-v", "error", "-y", "-n", "-i", $file.FullName, "-map_metadata", "0", "-c", "copy", $outputFile)
+            # Video codec is MP4-compatible — remux video, re-encode audio to AAC for compatibility
+            $ffmpegArgs = @("-v", "error", "-n", "-i", $file.FullName, "-map_metadata", "0", "-c:v", "copy", "-c:a", "aac", $outputFile)
             $mode = "remux"
         } else {
-            # Re-encode to H.264
-            $ffmpegArgs = @("-v", "error", "-y", "-n", "-i", $file.FullName, "-map_metadata", "0", "-c:v", "libx264", "-crf", "23", "-c:a", "aac", "-pix_fmt", "yuv420p", $outputFile)
+            # Re-encode to H.264 + AAC
+            $ffmpegArgs = @("-v", "error", "-n", "-i", $file.FullName, "-map_metadata", "0", "-c:v", "libx264", "-crf", "23", "-c:a", "aac", "-pix_fmt", "yuv420p", $outputFile)
         }
     }
 
