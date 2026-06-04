@@ -49,9 +49,12 @@ $knownExtensions = @(
     ".mpg", ".mpeg", ".mts", ".m2ts", ".webm"
 )
 
+# Build extension alternation for copy-suffix regex (only match known media extensions)
+$extAlternation = ($knownExtensions | ForEach-Object { [regex]::Escape($_) }) -join '|'
+
 # Suffixes appended by OS copy operations (after the real extension)
-# Note: macOS pattern limited to single digits 2-9 to avoid false positives on "DSC 1234.jpg"
-$copySuffixPattern = '(\.[a-zA-Z0-9]{2,4})(\s*-\s*(Copy|Kopie|copie|copia)(\s*\(\d+\))?|\s*\(\d+\)|\s+adl.\s+dosyan.n\s+kopyas.*|\s+[2-9])$'
+# macOS pattern matches " 2" through " 99" (single/double digit) to avoid false positives on "DSC 1234.jpg"
+$copySuffixPattern = "($extAlternation)(\s*-\s*(Copy|Kopie|copie|copia)(\s*\(\d+\))?|\s*\(\d+\)|\s+adl.\s+dosyan.n\s+kopyas.*|\s+[2-9]\d?)$"
 
 $successCount = 0
 $errorCount = 0
