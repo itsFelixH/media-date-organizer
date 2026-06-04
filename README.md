@@ -30,10 +30,10 @@ Before:                          After:
 
 ```powershell
 # Preview what would happen (recommended first run)
-.\sortPhotosAndVideos.ps1 -source "C:\Users\You\Pictures" -DryRun
+.\Sort-Media.ps1 -Source "C:\Users\You\Pictures" -DryRun
 
 # Do it for real
-.\sortPhotosAndVideos.ps1 -source "C:\Users\You\Pictures"
+.\Sort-Media.ps1 -Source "C:\Users\You\Pictures"
 ```
 
 ### macOS / Linux (Bash)
@@ -44,10 +44,10 @@ brew install exiftool          # macOS
 sudo apt install libimage-exiftool-perl  # Ubuntu/Debian
 
 # Preview what would happen
-./sortPhotosAndVideos.sh -source ~/Pictures -DryRun
+./Sort-Media.sh -source ~/Pictures -DryRun
 
 # Do it for real
-./sortPhotosAndVideos.sh -source ~/Pictures
+./Sort-Media.sh -source ~/Pictures
 ```
 
 That's it. Files are sorted into `<source>/Sorted/` by date.
@@ -74,9 +74,9 @@ This order is configurable. See [Configuration](#configuration-optional) below.
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `-source` | Folder containing your media | *Required* |
-| `-dest` | Where sorted files go | `<source>/Sorted` |
-| `-config` | Path to config file | `config.ini` next to script |
+| `-Source` | Folder containing your media | *Required* |
+| `-Dest` | Where sorted files go | `<source>/Sorted` |
+| `-Config` | Path to config file | `config.ini` next to script |
 | `-DryRun` | Preview without moving files | off |
 
 ---
@@ -147,12 +147,12 @@ Not sure how your files will be sorted? Analyze them first:
 
 ```powershell
 # Windows
-.\analyzeMedia.ps1 -source "C:\Users\You\Pictures\SomeFolder"
+.\Get-MediaReport.ps1 -Source "C:\Users\You\Pictures\SomeFolder"
 ```
 
 ```bash
 # macOS/Linux
-./analyzeMedia.sh -source ~/Pictures/SomeFolder
+./Get-MediaReport.sh -source ~/Pictures/SomeFolder
 ```
 
 <details>
@@ -169,6 +169,55 @@ Generates a `property_report_*.md` showing:
 
 ---
 
+## Helper Scripts
+
+The `helpers/` folder contains companion scripts for common media preparation tasks.
+All helpers support `-SourcePath` (defaults to current directory) and `-DryRun`.
+
+| Script | Purpose |
+|--------|---------|
+| `Get-ExtensionSummary.ps1` | Audit: count files by extension |
+| `Rename-JpegExtension.ps1` | Normalize `.jpeg` → `.jpg` |
+| `Repair-FileName.ps1` | Remove Turkish copy-suffix artifacts from filenames |
+| `Convert-MediaFormat.ps1` | Convert legacy formats to `.jpg`/`.mp4` via ffmpeg |
+| `Remove-ConvertedOriginals.ps1` | Delete originals after conversion (only if converted file exists) |
+
+### Suggested workflow
+
+```powershell
+$folder = "D:\Photos\Unsorted"
+
+# 1. Audit what you have
+.\helpers\Get-ExtensionSummary.ps1 -SourcePath $folder
+
+# 2. Normalize extensions
+.\helpers\Rename-JpegExtension.ps1 -SourcePath $folder -DryRun
+.\helpers\Repair-FileName.ps1 -SourcePath $folder -DryRun
+
+# 3. Convert legacy formats
+.\helpers\Convert-MediaFormat.ps1 -SourcePath $folder -DryRun
+
+# 4. Clean up originals (after verifying conversions)
+.\helpers\Remove-ConvertedOriginals.ps1 -SourcePath $folder -DryRun
+
+# 5. Sort into date folders
+.\Sort-Media.ps1 -Source $folder -DryRun
+```
+
+---
+
+## Variant: Sort with Folder Name
+
+`Sort-MediaByFolder.ps1` works like `Sort-Media.ps1` but appends the source folder name
+to the date-based directory structure. Useful for event-based collections where you want
+to preserve context (e.g., `2024-06-15 Wedding`).
+
+```powershell
+.\Sort-MediaByFolder.ps1 -Source "D:\Photos\Wedding" -DryRun
+```
+
+---
+
 ## Good to Know
 
 - **Always test with `-DryRun` first** — see exactly what will happen before committing
@@ -178,6 +227,18 @@ Generates a `property_report_*.md` showing:
 - **Log file** records every action as TSV for auditing (also logs during dry runs)
 - **Network drives** work if mapped; UNC paths may not expose metadata (Windows)
 - **RAW files** (CR3, NEF) — Windows needs 10+ for metadata; exiftool handles them everywhere
+
+---
+
+## Scripts Overview
+
+| Script | Platform | Description |
+|--------|----------|-------------|
+| `Sort-Media.ps1` | Windows | Main sorting script |
+| `Sort-Media.sh` | macOS/Linux | Main sorting script |
+| `Sort-MediaByFolder.ps1` | Windows | Sort with folder name appended |
+| `Get-MediaReport.ps1` | Windows | Metadata analysis & recommendations |
+| `Get-MediaReport.sh` | macOS/Linux | Metadata analysis & recommendations |
 
 ---
 
