@@ -3,7 +3,7 @@ set -euo pipefail
 
 # =============================================================================
 # sort-media.sh - Organize media files into date-based folders
-# macOS/Linux equivalent of sortPhotosAndVideos.ps1
+# macOS/Linux equivalent of Sort-Media.ps1
 # Requires: exiftool
 # =============================================================================
 
