@@ -177,8 +177,7 @@ All helpers support `-SourcePath` (defaults to current directory) and `-DryRun`.
 | Script | Purpose |
 |--------|---------|
 | `Get-ExtensionSummary.ps1` | Audit: count files by extension |
-| `Rename-JpegExtension.ps1` | Normalize `.jpeg` → `.jpg` |
-| `Repair-FileName.ps1` | Remove Turkish copy-suffix artifacts from filenames |
+| `Repair-FileExtension.ps1` | Fix mangled extensions (copy-suffixes, duplicates, normalize `.jpeg`→`.jpg`) |
 | `Convert-MediaFormat.ps1` | Convert legacy formats to `.jpg`/`.mp4` via ffmpeg |
 | `Remove-ConvertedOriginals.ps1` | Delete originals after conversion (only if converted file exists) |
 
@@ -190,9 +189,8 @@ $folder = "D:\Photos\Unsorted"
 # 1. Audit what you have
 .\helpers\Get-ExtensionSummary.ps1 -SourcePath $folder
 
-# 2. Normalize extensions
-.\helpers\Rename-JpegExtension.ps1 -SourcePath $folder -DryRun
-.\helpers\Repair-FileName.ps1 -SourcePath $folder -DryRun
+# 2. Fix broken/mangled extensions
+.\helpers\Repair-FileExtension.ps1 -SourcePath $folder -DryRun
 
 # 3. Convert legacy formats
 .\helpers\Convert-MediaFormat.ps1 -SourcePath $folder -DryRun
