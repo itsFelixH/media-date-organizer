@@ -183,6 +183,7 @@ All helpers support `-SourcePath` (defaults to current directory) and `-DryRun`.
 | `Repair-FileExtension.ps1` | Fix mangled extensions (copy-suffixes, duplicates, normalize `.jpeg`→`.jpg`) |
 | `Convert-MediaFormat.ps1` | Convert legacy formats to `.jpg`/`.mp4` via ffmpeg |
 | `Remove-ConvertedOriginals.ps1` | Delete originals after conversion (only if converted file exists) |
+| `Set-MediaTimestamp.ps1` | Fix filesystem dates (Created/Modified) from EXIF metadata |
 
 ### Suggested workflow
 
@@ -201,7 +202,10 @@ $folder = "D:\Photos\Unsorted"
 # 4. Clean up originals after conversion (optional)
 .\helpers\Remove-ConvertedOriginals.ps1 -SourcePath $folder -DryRun
 
-# 5. Sort into date folders
+# 5. Fix filesystem timestamps from EXIF data (optional)
+.\helpers\Set-MediaTimestamp.ps1 -SourcePath $folder -DryRun
+
+# 6. Sort into date folders
 .\Sort-Media.ps1 -Source $folder -DryRun
 ```
 
