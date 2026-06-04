@@ -15,9 +15,9 @@
 .PARAMETER DryRun
     Preview changes without renaming any files.
 .EXAMPLE
-    .\Repair-FileName.ps1 -SourcePath "D:\Photos" -DryRun
+    .\Repair-FileExtension.ps1 -SourcePath "D:\Photos" -DryRun
 .EXAMPLE
-    .\Repair-FileName.ps1 -SourcePath "D:\Photos"
+    .\Repair-FileExtension.ps1 -SourcePath "D:\Photos"
 #>
 
 [CmdletBinding(SupportsShouldProcess)]
@@ -50,7 +50,8 @@ $knownExtensions = @(
 )
 
 # Suffixes appended by OS copy operations (after the real extension)
-$copySuffixPattern = '(\.[a-zA-Z0-9]{2,4})(\s*-\s*(Copy|Kopie|copie|copia)(\s*\(\d+\))?|\s*\(\d+\)|\s+adl.\s+dosyan.n\s+kopyas.*|\s+\d+)$'
+# Note: macOS pattern limited to single digits 2-9 to avoid false positives on "DSC 1234.jpg"
+$copySuffixPattern = '(\.[a-zA-Z0-9]{2,4})(\s*-\s*(Copy|Kopie|copie|copia)(\s*\(\d+\))?|\s*\(\d+\)|\s+adl.\s+dosyan.n\s+kopyas.*|\s+[2-9])$'
 
 $successCount = 0
 $errorCount = 0
