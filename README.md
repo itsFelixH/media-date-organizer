@@ -44,10 +44,10 @@ brew install exiftool          # macOS
 sudo apt install libimage-exiftool-perl  # Ubuntu/Debian
 
 # Preview what would happen
-./Sort-Media.sh -source ~/Pictures -DryRun
+./sort-media.sh -source ~/Pictures -DryRun
 
 # Do it for real
-./Sort-Media.sh -source ~/Pictures
+./sort-media.sh -source ~/Pictures
 ```
 
 That's it. Files are sorted into `<source>/Sorted/` by date.
@@ -152,7 +152,7 @@ Not sure how your files will be sorted? Analyze them first:
 
 ```bash
 # macOS/Linux
-./Get-MediaReport.sh -source ~/Pictures/SomeFolder
+./get-media-report.sh -source ~/Pictures/SomeFolder
 ```
 
 <details>
@@ -211,6 +211,33 @@ $folder = "D:\Photos\Unsorted"
 
 Each step is independent. Skip any you don't need.
 
+<details>
+<summary><strong>macOS / Linux equivalent</strong></summary>
+
+```bash
+folder=~/Pictures/Unsorted
+
+# 1. Audit what you have
+./helpers/get-extension-summary.sh -source "$folder"
+
+# 2. Fix broken/mangled extensions
+./helpers/repair-file-extension.sh -source "$folder" -DryRun
+
+# 3. Convert legacy formats (optional — only if you have .heic, .webp, .avi, etc.)
+./helpers/convert-media-format.sh -source "$folder" -DryRun
+
+# 4. Clean up originals after conversion (optional)
+./helpers/remove-converted-originals.sh -source "$folder" -DryRun
+
+# 5. Fix filesystem timestamps from EXIF data (optional)
+./helpers/set-media-timestamp.sh -source "$folder" -DryRun
+
+# 6. Sort into date folders
+./sort-media.sh -source "$folder" -DryRun
+```
+
+</details>
+
 ---
 
 ## Variant: Sort with Folder Name
@@ -242,10 +269,20 @@ to preserve context (e.g., `2024-06-15 Wedding`).
 | Script | Platform | Description |
 |--------|----------|-------------|
 | `Sort-Media.ps1` | Windows | Main sorting script |
-| `Sort-Media.sh` | macOS/Linux | Main sorting script |
+| `sort-media.sh` | macOS/Linux | Main sorting script |
 | `Sort-MediaByFolder.ps1` | Windows | Sort with folder name appended |
 | `Get-MediaReport.ps1` | Windows | Metadata analysis & recommendations |
-| `Get-MediaReport.sh` | macOS/Linux | Metadata analysis & recommendations |
+| `get-media-report.sh` | macOS/Linux | Metadata analysis & recommendations |
+
+### Helpers (both platforms)
+
+| PowerShell (Windows) | Bash (macOS/Linux) | Purpose |
+|---|---|---|
+| `helpers/Get-ExtensionSummary.ps1` | `helpers/get-extension-summary.sh` | Count files by extension + size |
+| `helpers/Repair-FileExtension.ps1` | `helpers/repair-file-extension.sh` | Fix mangled extensions |
+| `helpers/Convert-MediaFormat.ps1` | `helpers/convert-media-format.sh` | Convert legacy formats via ffmpeg |
+| `helpers/Remove-ConvertedOriginals.ps1` | `helpers/remove-converted-originals.sh` | Delete originals post-conversion |
+| `helpers/Set-MediaTimestamp.ps1` | `helpers/set-media-timestamp.sh` | Fix filesystem dates from EXIF |
 
 ---
 
