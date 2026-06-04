@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # =============================================================================
-# analyzeMedia.sh - Analyze media files and generate a metadata report
+# get-media-report.sh - Analyze media files and generate a metadata report
 # macOS/Linux equivalent of analyzeMedia.ps1
 # Requires: exiftool
 # =============================================================================
