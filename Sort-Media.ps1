@@ -2,11 +2,16 @@
 Param(
     [Parameter(Mandatory = $true)]
     [ValidateScript({ Test-Path -Path $_ -PathType Container })]
-    [string]$source,
-    [string]$dest = (Join-Path -Path $source -ChildPath "Sorted"),
-    [string]$config = (Join-Path -Path $PSScriptRoot -ChildPath "config.ini"),
+    [string]$Source,
+    [string]$Dest = (Join-Path -Path $Source -ChildPath "Sorted"),
+    [string]$Config = (Join-Path -Path $PSScriptRoot -ChildPath "config.ini"),
     [switch]$DryRun
 )
+
+# Assign to internal variables for backward compat in script body
+$source = $Source
+$dest = $Dest
+$config = $Config
 
 # --- Configuration ---
 # Map of friendly names to Windows Shell property IDs

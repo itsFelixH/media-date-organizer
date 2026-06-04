@@ -1,21 +1,42 @@
+<#
+.SYNOPSIS
+    Removes original media files after verifying their converted counterparts exist.
+.DESCRIPTION
+    Scans for legacy-format files (.webp, .jfif, .heic, .bmp, .3gp, .mov, .avi) and
+    deletes them ONLY if a matching converted file (.jpg or .mp4) exists in the same
+    directory. This is a safe cleanup step to run after Convert-MediaFormat.ps1.
+.PARAMETER SourcePath
+    The directory to scan. Defaults to the current directory.
+.PARAMETER Extensions
+    File extensions to check for cleanup. Defaults to: .webp, .jfif, .heic, .bmp, .3gp, .mov, .avi
+.PARAMETER DryRun
+    Preview deletions without actually removing files.
+.EXAMPLE
+    .\Remove-ConvertedOriginals.ps1 -SourcePath "D:\Photos" -DryRun
+.EXAMPLE
+    .\Remove-ConvertedOriginals.ps1 -SourcePath "D:\Photos"
+#>
+
 [CmdletBinding()]
 Param(
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false, Position = 0)]
     [ValidateScript({ Test-Path -Path $_ -PathType Container })]
-    [string]$SourcePath = "F:\Bilder\Fotos",
+    [Alias('Path')]
+    [string]$SourcePath = ".",
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string[]]$Extensions = @(".webp", ".jfif", ".heic", ".bmp", ".3gp", ".mov", ".avi"),
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [switch]$DryRun
 )
 
-Write-Host "Scanning for media originals to clean up in $SourcePath..." -ForegroundColor Cyan
+$resolvedPath = (Resolve-Path -Path $SourcePath).Path
+Write-Host "Scanning for converted originals to clean up in $resolvedPath..." -ForegroundColor Cyan
 
-# Optimized search for the target extensions
+# Find files matching the target extensions
 $includePatterns = $Extensions | ForEach-Object { "*$_" }
-$originals = Get-ChildItem -Path $SourcePath -Include $includePatterns -Recurse -File
+$originals = Get-ChildItem -Path $resolvedPath -Include $includePatterns -Recurse -File
 $totalFound = $originals.Count
 
 if ($totalFound -eq 0) {
@@ -23,24 +44,22 @@ if ($totalFound -eq 0) {
     return
 }
 
+$photoExtensions = @(".webp", ".jfif", ".heic", ".bmp")
 $deletedCount = 0
 $skippedCount = 0
 
-# Grouping for target extension logic
-$photoExtensions = @(".webp", ".jfif", ".heic", ".bmp")
-
 foreach ($file in $originals) {
     $ext = $file.Extension.ToLower()
-    # Determine if we should look for a .jpg (photo) or .mp4 (video)
     $targetExt = if ($ext -in $photoExtensions) { ".jpg" } else { ".mp4" }
     $targetPath = Join-Path -Path $file.DirectoryName -ChildPath ($file.BaseName + $targetExt)
 
     if (Test-Path -LiteralPath $targetPath) {
         $targetLabel = $targetExt.ToUpper().TrimStart('.')
         Write-Host "Found $targetLabel for: $($file.Name) - Safe to delete." -ForegroundColor Gray
-        
+
         if ($DryRun) {
             Write-Host "  [DRY RUN] Would delete $($file.FullName)" -ForegroundColor Yellow
+            $deletedCount++
         } else {
             try {
                 Remove-Item -LiteralPath $file.FullName -Force -ErrorAction Stop
@@ -56,11 +75,8 @@ foreach ($file in $originals) {
     }
 }
 
-Write-Host "`n--- Media Cleanup Summary ---" -ForegroundColor Cyan
-Write-Host "Originals Found: $totalFound"
+Write-Host "`n--- Summary ---" -ForegroundColor Cyan
+Write-Host "Originals found: $totalFound"
 Write-Host "Deleted:         $deletedCount" -ForegroundColor Green
 Write-Host "Skipped:         $skippedCount" -ForegroundColor Yellow
-
-if ($DryRun) {
-    Write-Host "This was a DRY RUN. No files were actually deleted." -ForegroundColor Yellow
-}
+if ($DryRun) { Write-Host "(Dry run - no files were actually deleted)" -ForegroundColor Yellow }

@@ -1,21 +1,34 @@
+<#
+.SYNOPSIS
+    Standardizes .jpeg file extensions to .jpg.
+.DESCRIPTION
+    Recursively finds all .jpeg files and renames them to .jpg.
+    Handles case variations (.JPEG, .Jpeg) and filename conflicts at destination.
+.PARAMETER SourcePath
+    The directory to scan for .jpeg files. Defaults to the current directory.
+.PARAMETER DryRun
+    Preview changes without renaming any files.
+.EXAMPLE
+    .\Rename-JpegExtension.ps1 -SourcePath "D:\Photos" -DryRun
+.EXAMPLE
+    .\Rename-JpegExtension.ps1 -SourcePath "D:\Photos"
+#>
+
 [CmdletBinding()]
 Param(
-    [Parameter(Mandatory=$false)]
-    [string]$SourcePath = "F:\Bilder\Fotos",
+    [Parameter(Mandatory = $false, Position = 0)]
+    [ValidateScript({ Test-Path -Path $_ -PathType Container })]
+    [Alias('Path')]
+    [string]$SourcePath = ".",
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [switch]$DryRun
 )
 
-if (-not (Test-Path -Path $SourcePath -PathType Container)) {
-    Write-Error "Source path '$SourcePath' does not exist."
-    return
-}
+$resolvedPath = (Resolve-Path -Path $SourcePath).Path
+Write-Host "Scanning for .jpeg files in $resolvedPath..." -ForegroundColor Cyan
 
-Write-Host "Scanning for .jpeg files in $SourcePath..." -ForegroundColor Cyan
-
-# Find all files with .jpeg extension (handles variations like .JPEG, .Jpeg)
-$files = Get-ChildItem -Path $SourcePath -Filter *.jpeg -Recurse -File
+$files = Get-ChildItem -Path $resolvedPath -Filter *.jpeg -Recurse -File
 $total = $files.Count
 
 if ($total -eq 0) {
@@ -32,7 +45,7 @@ foreach ($file in $files) {
     $newName = $file.BaseName + ".jpg"
     $newFullPath = Join-Path -Path $file.DirectoryName -ChildPath $newName
 
-    # Conflict Handling: If target .jpg already exists, append a suffix
+    # Conflict handling: append suffix if target already exists
     if (Test-Path -LiteralPath $newFullPath) {
         $i = 1
         while (Test-Path -LiteralPath $newFullPath) {
@@ -42,10 +55,11 @@ foreach ($file in $files) {
         }
     }
 
-    Write-Host "Standardizing: $($file.Name) -> $newName"
-    
+    Write-Host "Renaming: $($file.Name) -> $newName"
+
     if ($DryRun) {
         Write-Host "  [DRY RUN] Would rename to $newName" -ForegroundColor Gray
+        $successCount++
         continue
     }
 
@@ -58,5 +72,7 @@ foreach ($file in $files) {
     }
 }
 
-Write-Host "`nSummary: Standardized $successCount files. Errors: $errorCount." -ForegroundColor Cyan
-if ($DryRun) { Write-Host "This was a DRY RUN. No changes were made." -ForegroundColor Yellow }
+Write-Host "`n--- Summary ---" -ForegroundColor Cyan
+Write-Host "Renamed:  $successCount"
+Write-Host "Errors:   $errorCount" -ForegroundColor ($errorCount -gt 0 ? "Red" : "Gray")
+if ($DryRun) { Write-Host "(Dry run - no files were actually renamed)" -ForegroundColor Yellow }

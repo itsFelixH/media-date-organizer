@@ -5,9 +5,13 @@
 
 Param(
     [ValidateScript({ Test-Path -Path $_ -PathType Container })]
-    [string]$source = (Join-Path -Path $PSScriptRoot -ChildPath "examples"),
-    [string]$config = (Join-Path -Path $PSScriptRoot -ChildPath "config.ini")
+    [string]$Source = (Join-Path -Path $PSScriptRoot -ChildPath "examples"),
+    [string]$Config = (Join-Path -Path $PSScriptRoot -ChildPath "config.ini")
 )
+
+# Assign to internal variables for backward compat in script body
+$source = $Source
+$config = $Config
 
 $reportTimestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $reportPath = Join-Path -Path $PSScriptRoot -ChildPath "property_report_$reportTimestamp.md"
