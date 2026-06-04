@@ -240,18 +240,6 @@ folder=~/Pictures/Unsorted
 
 ---
 
-## Variant: Sort with Folder Name
-
-`Sort-MediaByFolder.ps1` works like `Sort-Media.ps1` but appends the source folder name
-to the date-based directory structure. Useful for event-based collections where you want
-to preserve context (e.g., `2024-06-15 Wedding`).
-
-```powershell
-.\Sort-MediaByFolder.ps1 -Source "D:\Photos\Wedding" -DryRun
-```
-
----
-
 ## Good to Know
 
 - **Always test with `-DryRun` first** — see exactly what will happen before committing
@@ -270,7 +258,6 @@ to preserve context (e.g., `2024-06-15 Wedding`).
 |--------|----------|-------------|
 | `Sort-Media.ps1` | Windows | Main sorting script |
 | `sort-media.sh` | macOS/Linux | Main sorting script |
-| `Sort-MediaByFolder.ps1` | Windows | Sort with folder name appended |
 | `Get-MediaReport.ps1` | Windows | Metadata analysis & recommendations |
 | `get-media-report.sh` | macOS/Linux | Metadata analysis & recommendations |
 
