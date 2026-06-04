@@ -8,8 +8,6 @@
     The directory to scan. Defaults to the current directory.
 .EXAMPLE
     .\Get-ExtensionSummary.ps1 -SourcePath "D:\Photos"
-.EXAMPLE
-    .\Get-ExtensionSummary.ps1 -SourcePath "." | Format-Table -AutoSize
 #>
 
 [CmdletBinding()]
@@ -25,7 +23,15 @@ Write-Host "Scanning $resolvedPath..." -ForegroundColor Cyan
 
 $extensionStats = Get-ChildItem -Path $resolvedPath -File -Recurse |
     Group-Object { if ($_.Extension) { $_.Extension.ToLower() } else { "(no extension)" } } |
-    Select-Object @{Name = "Extension"; Expression = { $_.Name } }, Count |
+    Select-Object @{Name = "Extension"; Expression = { $_.Name } },
+                  Count,
+                  @{Name = "Size"; Expression = {
+                      $bytes = ($_.Group | Measure-Object -Property Length -Sum).Sum
+                      if ($bytes -ge 1GB) { "{0:N1} GB" -f ($bytes / 1GB) }
+                      elseif ($bytes -ge 1MB) { "{0:N1} MB" -f ($bytes / 1MB) }
+                      elseif ($bytes -ge 1KB) { "{0:N1} KB" -f ($bytes / 1KB) }
+                      else { "$bytes B" }
+                  }} |
     Sort-Object Count -Descending
 
 if ($extensionStats.Count -eq 0) {
@@ -36,4 +42,10 @@ if ($extensionStats.Count -eq 0) {
 Write-Host "`nFile Extension Summary:" -ForegroundColor Cyan
 $extensionStats | Format-Table -AutoSize
 
-Write-Host "Total: $($extensionStats | Measure-Object -Property Count -Sum | Select-Object -ExpandProperty Sum) files across $($extensionStats.Count) extensions."
+$totalFiles = ($extensionStats | Measure-Object -Property Count -Sum).Sum
+$totalBytes = Get-ChildItem -Path $resolvedPath -File -Recurse | Measure-Object -Property Length -Sum | Select-Object -ExpandProperty Sum
+$totalSize = if ($totalBytes -ge 1GB) { "{0:N1} GB" -f ($totalBytes / 1GB) }
+             elseif ($totalBytes -ge 1MB) { "{0:N1} MB" -f ($totalBytes / 1MB) }
+             else { "{0:N1} KB" -f ($totalBytes / 1KB) }
+
+Write-Host "Total: $totalFiles files ($totalSize) across $($extensionStats.Count) extensions."
