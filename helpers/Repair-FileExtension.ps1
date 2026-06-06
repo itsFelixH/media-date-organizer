@@ -138,5 +138,5 @@ Get-ChildItem -LiteralPath $resolvedPath -File -Recurse | ForEach-Object {
 Write-Host "`n--- Summary ---" -ForegroundColor Cyan
 Write-Host "Scanned:  $totalChecked files"
 Write-Host "Repaired: $successCount"
-Write-Host "Errors:   $errorCount" -ForegroundColor ($errorCount -gt 0 ? "Red" : "Gray")
+Write-Host "Errors:   $errorCount" -ForegroundColor $(if ($errorCount -gt 0) { "Red" } else { "Gray" })
 if ($DryRun) { Write-Host "(Dry run - no files were actually renamed)" -ForegroundColor Yellow }

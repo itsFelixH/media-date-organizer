@@ -165,5 +165,5 @@ Write-Host "`n--- Summary ---" -ForegroundColor Cyan
 Write-Host "Scanned:  $total"
 Write-Host "Updated:  $updatedCount" -ForegroundColor Green
 Write-Host "Skipped:  $skippedCount (already correct or no metadata)" -ForegroundColor DarkGray
-Write-Host "Errors:   $errorCount" -ForegroundColor ($errorCount -gt 0 ? "Red" : "Gray")
+Write-Host "Errors:   $errorCount" -ForegroundColor $(if ($errorCount -gt 0) { "Red" } else { "Gray" })
 if ($DryRun) { Write-Host "(Dry run - no timestamps were actually changed)" -ForegroundColor Yellow }

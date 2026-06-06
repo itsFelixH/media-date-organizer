@@ -95,5 +95,5 @@ Write-Host "`n--- Summary ---" -ForegroundColor Cyan
 Write-Host "Originals found: $totalFound"
 Write-Host "Deleted:         $deletedCount" -ForegroundColor Green
 Write-Host "Skipped:         $skippedCount" -ForegroundColor Yellow
-Write-Host "Errors:          $errorCount" -ForegroundColor ($errorCount -gt 0 ? "Red" : "Gray")
+Write-Host "Errors:          $errorCount" -ForegroundColor $(if ($errorCount -gt 0) { "Red" } else { "Gray" })
 if ($DryRun) { Write-Host "(Dry run - no files were actually deleted)" -ForegroundColor Yellow }
